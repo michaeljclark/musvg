@@ -42,12 +42,13 @@ typedef enum musvg_spread_type musvg_spread_type;
 typedef enum musvg_linejoin_type musvg_linejoin_type;
 typedef enum musvg_linecap_type musvg_linecap_type;
 typedef enum musvg_fillrule_type musvg_fillrule_type;
-typedef enum musvg_units musvg_units;
+typedef enum musvg_unit musvg_unit;
 typedef enum musvg_display musvg_display;
 typedef enum musvg_align musvg_align;
 typedef enum musvg_crop musvg_crop;
-typedef enum musvg_gradient_units musvg_gradient_units;
+typedef enum musvg_gradient_unit musvg_gradient_unit;
 typedef enum musvg_type musvg_type;
+typedef enum musvg_attr musvg_attr;
 typedef struct musvg_id musvg_id;
 typedef struct musvg_length musvg_length;
 typedef struct musvg_color musvg_color;
@@ -58,7 +59,8 @@ typedef struct musvg_dasharray musvg_dasharray;
 typedef struct musvg_path_op musvg_path_op;
 typedef struct musvg_attribute musvg_attribute;
 //typedef struct musvg_value musvg_value;
-typedef struct musvg_typeinfo musvg_typeinfo;
+typedef struct musvg_typeinfo_attr musvg_typeinfo_attr;
+typedef struct musvg_typeinfo_enum musvg_typeinfo_enum;
 typedef struct musvg_node_svg musvg_node_svg;
 typedef struct musvg_node_g musvg_node_g;
 typedef struct musvg_node_path musvg_node_path;
@@ -122,6 +124,7 @@ enum musvg_attr {
     musvg_attr_svg_viewbox,
     musvg_attr_svg_aspectratio,
     musvg_attr_path_d,
+    musvg_attr_poly_points,
     musvg_attr_rect_x,
     musvg_attr_rect_y,
     musvg_attr_rect_width,
@@ -139,8 +142,6 @@ enum musvg_attr {
     musvg_attr_line_y1,
     musvg_attr_line_x2,
     musvg_attr_line_y2,
-    musvg_attr_polyline_points,
-    musvg_attr_polygon_points,
     musvg_attr_lgradient_x1,
     musvg_attr_lgradient_y1,
     musvg_attr_lgradient_x2,
@@ -211,40 +212,50 @@ enum musvg_linecap_type {
     musvg_linecap_butt,
     musvg_linecap_round,
     musvg_linecap_square,
-    musvg_linecap_default_val = musvg_linecap_butt
+
+    musvg_linecap_LIMIT = musvg_linecap_square,
+    musvg_linecap_DEFAULT = musvg_linecap_butt
 };
 enum musvg_linejoin_type {
     musvg_linejoin_default,
     musvg_linejoin_miter,
     musvg_linejoin_round,
     musvg_linejoin_bevel,
-    musvg_linejoin_default_val = musvg_linejoin_miter
+
+    musvg_linejoin_LIMIT = musvg_linejoin_bevel,
+    musvg_linejoin_DEFAULT = musvg_linejoin_miter
 };
 enum musvg_fillrule_type {
     musvg_fillrule_default,
     musvg_fillrule_nonzero,
     musvg_fillrule_evenodd,
-    musvg_fillrule_default_val = musvg_fillrule_nonzero
+
+    musvg_fillrule_LIMIT = musvg_fillrule_evenodd,
+    musvg_fillrule_DEFAULT = musvg_fillrule_nonzero
 };
-enum musvg_units {
-    musvg_units_default,
-    musvg_units_user,
-    musvg_units_px,
-    musvg_units_pt,
-    musvg_units_pc,
-    musvg_units_mm,
-    musvg_units_cm,
-    musvg_units_in,
-    musvg_units_percent,
-    musvg_units_em,
-    musvg_units_ex,
-    musvg_units_default_val = musvg_units_default
+enum musvg_unit {
+    musvg_unit_default,
+    musvg_unit_user,
+    musvg_unit_px,
+    musvg_unit_pt,
+    musvg_unit_pc,
+    musvg_unit_mm,
+    musvg_unit_cm,
+    musvg_unit_in,
+    musvg_unit_percent,
+    musvg_unit_em,
+    musvg_unit_ex,
+
+    musvg_unit_LIMIT = musvg_unit_ex,
+    musvg_unit_DEFAULT = musvg_unit_user
 };
 enum musvg_display {
     musvg_display_default,
     musvg_display_inline,
     musvg_display_none,
-    musvg_display_default_val = musvg_display_inline
+
+    musvg_display_LIMIT = musvg_display_none,
+    musvg_display_DEFAULT = musvg_display_inline
 };
 enum musvg_align {
     musvg_align_default,
@@ -252,27 +263,29 @@ enum musvg_align {
     musvg_align_min,
     musvg_align_mid,
     musvg_align_max,
-    musvg_align_default_val = musvg_align_mid
+    musvg_align_DEFAULT = musvg_align_mid
 };
 enum musvg_crop {
     musvg_crop_default,
     musvg_crop_none,
     musvg_crop_meet,
     musvg_crop_slice,
-    musvg_crop_default_val = musvg_crop_meet
+    musvg_crop_DEFAULT = musvg_crop_meet
 };
 enum musvg_gradient_spread_type {
     musvg_gradient_spread_default,
     musvg_gradient_spread_pad,
     musvg_gradient_spread_reflect,
     musvg_gradient_spread_repeat,
-    musvg_gradient_spread_default_val = musvg_gradient_spread_pad
+    musvg_gradient_spread_LIMIT = musvg_gradient_spread_repeat,
+    musvg_gradient_spread_DEFAULT = musvg_gradient_spread_pad
 };
-enum musvg_gradient_units {
-    musvg_gradient_units_default,
-    musvg_gradient_units_user,
-    musvg_gradient_units_obb,
-    musvg_gradient_units_default_val = musvg_gradient_units_user
+enum musvg_gradient_unit {
+    musvg_gradient_unit_default,
+    musvg_gradient_unit_user,
+    musvg_gradient_unit_obb,
+    musvg_gradient_unit_LIMIT = musvg_gradient_unit_obb,
+    musvg_gradient_unit_DEFAULT = musvg_gradient_unit_user
 };
 enum musvg_transform_type {
     musvg_transform_matrix,
@@ -293,7 +306,7 @@ struct musvg_id
 struct musvg_length
 {
     float value;
-    int units;
+    char units;
 };
 
 struct musvg_color
@@ -304,8 +317,8 @@ struct musvg_color
 
 struct musvg_transform
 {
-    uint type;
-    uint nargs;
+    char type;
+    char nargs;
     float args[3];
     float xform[6];
 };
@@ -313,7 +326,7 @@ struct musvg_transform
 struct musvg_dasharray
 {
     float dashes[8];
-    uint count;
+    char count;
 };
 
 struct musvg_viewbox
@@ -326,21 +339,21 @@ struct musvg_viewbox
 
 struct musvg_aspectratio
 {
-    int alignX;
-    int alignY;
-    int alignType;    
+    char alignX;
+    char alignY;
+    char alignType;
 };
 
 // SVG path operation
 
 struct musvg_path_op
 {
-    musvg_path_opcode code;
+    char code;
     uint point_offset;
     uint point_count;
 };
 
-// SVG attribute
+// SVG common attributes
 
 struct musvg_attribute
 {
@@ -375,7 +388,6 @@ enum musvg_type
     musvg_type_color,
     musvg_type_transform,
     musvg_type_dasharray,
-    musvg_type_integer,
     musvg_type_float,
     musvg_type_viewbox,
     musvg_type_aspectratio,
@@ -383,30 +395,17 @@ enum musvg_type
     musvg_type_points,
 };
 
-/*
-struct musvg_value
-{
-    union {
-        char enumval;
-        musvg_id id;
-        musvg_length length;
-        musvg_color color;
-        musvg_transform transform;
-        musvg_dasharray dasharray;
-        int intval;
-        float floatval;
-        musvg_viewvox viewbox;
-        musvg_aspectratio aspectratio;
-        musvg_path path;
-    };
-};
-*/
-
-struct musvg_typeinfo
+struct musvg_typeinfo_attr
 {
     musvg_type type;
     size_t offset;
-    const char ** enum_names;
+};
+
+struct musvg_typeinfo_enum
+{
+    const char ** names;
+    size_t limit;
+    size_t defalt;
 };
 
 // SVG node
@@ -454,6 +453,8 @@ struct musvg_node_rgradient {
     musvg_length cx, cy, r, fx, fy;
 };
 
+enum { musvg_node_sentinel = -1 };
+
 struct musvg_node
 {
     uint type;
@@ -473,6 +474,7 @@ struct musvg_node
         musvg_node_lgradient lgradient;
         musvg_node_rgradient rgradient;
     };
+    musvg_parser *p;
 };
 
 // SVG named color
@@ -500,7 +502,9 @@ struct musvg_brush
 // SVG API
 
 musvg_parser* musvg_parser_create();
-void musvg_parser_dump(musvg_parser* musvg);
+void musvg_emit_text(musvg_parser* musvg);
+void musvg_emit_html(musvg_parser* musvg);
+void musvg_emit_binary(musvg_parser* musvg);
 void musvg_parser_destroy(musvg_parser* musvg);
 musvg_parser* musvg_parse_data(char* data, size_t length);
 musvg_parser* musvg_parse_file(const char* filename);
