@@ -2073,8 +2073,8 @@ int musvg_read_binary_length(musvg_buf *buf, musvg_node *node, musvg_attr attr)
 {
     const size_t offset = musvg_type_info_attr[attr].offset;
     musvg_length *length = (musvg_length*)((char *)node + offset);
-    assert(vf_buf_read_i8(buf, &length->units));
     assert(!vf_f32_read(buf, &length->value));
+    assert(vf_buf_read_i8(buf, &length->units));
     return 0;
 }
 
@@ -2208,8 +2208,8 @@ int musvg_write_binary_length(musvg_buf *buf, const musvg_node *node, musvg_attr
 {
     const size_t offset = musvg_type_info_attr[attr].offset;
     const musvg_length length = *(const musvg_length*)((char *)node + offset);
-    assert(vf_buf_write_i8(buf, length.units));
     assert(!vf_f32_write_byval(buf, length.value));
+    assert(vf_buf_write_i8(buf, length.units));
     return 0;
 }
 
