@@ -36,6 +36,7 @@ extern "C" {
 typedef unsigned uint;
 typedef unsigned long long ullong;
 
+#ifndef __cplusplus
 typedef enum musvg_path_opcode musvg_path_opcode;
 typedef enum musvg_brush_type musvg_brush_type;
 typedef enum musvg_spread_type musvg_spread_type;
@@ -49,6 +50,8 @@ typedef enum musvg_crop musvg_crop;
 typedef enum musvg_gradient_unit musvg_gradient_unit;
 typedef enum musvg_type musvg_type;
 typedef enum musvg_attr musvg_attr;
+#endif
+
 typedef struct musvg_span musvg_span;
 typedef struct musvg_id musvg_id;
 typedef struct musvg_length musvg_length;
@@ -514,6 +517,7 @@ void musvg_emit_text(musvg_parser* musvg);
 void musvg_emit_xml(musvg_parser* musvg);
 void musvg_emit_binary(musvg_parser* musvg);
 void musvg_parser_destroy(musvg_parser* musvg);
+musvg_span musvg_read_file(const char* filename);
 musvg_parser* musvg_parse_xml_data(char* data, size_t length);
 musvg_parser* musvg_parse_binary_data(char* data, size_t length);
 musvg_parser* musvg_parse_xml_file(const char* filename);
