@@ -41,36 +41,6 @@
     #define M_PI 3.14159265358979323846264338327
 #endif
 
-// Debug
-
-static int debug = 0;
-
-void musvg_set_debug(int level) { debug = level; }
-
-static void log_printf(const char* fmt, ...)
-{
-    int len;
-    char buf[128];
-    char *pbuf = buf;
-    char *hbuf = NULL;
-    va_list ap;
-    va_start(ap, fmt);
-    len = vsnprintf(pbuf, sizeof(buf)-1, fmt, ap);
-    pbuf[sizeof(buf)-1] = '\0';
-    va_end(ap);
-    if (len >= sizeof(buf)) {
-        pbuf = hbuf = malloc(len + 1);
-        va_start(ap, fmt);
-        len = vsnprintf(pbuf, len + 1, fmt, ap);
-        pbuf[len] = '\0';
-        va_end(ap);
-    }
-    fwrite(pbuf, 1, len, stderr);
-    if (hbuf) free(hbuf);
-}
-
-#define debugf(...) if(debug) log_printf(__VA_ARGS__)
-
 // Array buffer
 
 typedef struct array_buffer array_buffer;
@@ -588,7 +558,7 @@ static void musvg_parse_element(char* s,
     }
 }
 
-static int musvg_parsexml(char* input,
+static int musvg_parse_xml(char* input,
              void (*startel_cb)(void* ud, const char* el, const char** attr),
              void (*endel_cb)(void* ud, const char* el),
              void (*content_cb)(void* ud, const char* s),
@@ -1640,12 +1610,13 @@ static void musvg_stack_pop(musvg_parser *p)
     p->node_depth--;
 }
 
-static void musvg_node_add(musvg_parser *p, musvg_node *node)
+static uint musvg_node_add(musvg_parser *p, musvg_node *node)
 {
     node->parent = musvg_stack_top(p);
     node->next = musvg_node_sentinel;
     uint idx = nodes_add(p, node);
     nodes_get(p,idx)->p = p;
+    return idx;
 }
 
 // SVG node parsing
@@ -2550,7 +2521,7 @@ void musvg_emit_text_end(musvg_buf *buf, musvg_node *node, uint depth, uint clos
     vf_buf_write_string(buf, "};\n");
 }
 
-void musvg_emit_html_begin(musvg_buf *buf, musvg_node *node, uint depth, uint close)
+void musvg_emit_xml_begin(musvg_buf *buf, musvg_node *node, uint depth, uint close)
 {
     for (int d = 0; d < depth; d++) vf_buf_write_string(buf, "\t");
     vf_buf_write_i8(buf, '<');
@@ -2570,7 +2541,7 @@ void musvg_emit_html_begin(musvg_buf *buf, musvg_node *node, uint depth, uint cl
     vf_buf_write_string(buf, ">\n\0");
 }
 
-void musvg_emit_html_end(musvg_buf *buf, musvg_node *node, uint depth, uint close)
+void musvg_emit_xml_end(musvg_buf *buf, musvg_node *node, uint depth, uint close)
 {
     if (close) return;
     for (int d = 0; d < depth; d++) vf_buf_write_string(buf, "\t");
@@ -2623,7 +2594,7 @@ void musvg_emit(musvg_parser* p, musvg_node_fn begin, musvg_node_fn end)
      */
     musvg_buf *buf = vf_resizable_buf_new();
     musvg_emit_recurse(buf, p, 0, nodes_count(p), 0, begin, end);
-    fwrite(buf->data, 1, buf->data_offset, stdout);
+    fwrite(buf->data, 1, buf->write_marker, stdout);
     vf_buf_destroy(buf);
 }
 
@@ -2632,14 +2603,50 @@ void musvg_emit_text(musvg_parser* p)
     musvg_emit(p, musvg_emit_text_begin, musvg_emit_text_end);
 }
 
-void musvg_emit_html(musvg_parser* p)
+void musvg_emit_xml(musvg_parser* p)
 {
-    musvg_emit(p, musvg_emit_html_begin, musvg_emit_html_end);
+    musvg_emit(p, musvg_emit_xml_begin, musvg_emit_xml_end);
 }
 
 void musvg_emit_binary(musvg_parser* p)
 {
     musvg_emit(p, musvg_emit_binary_begin, musvg_emit_binary_end);
+}
+
+void musvg_parse_binary(musvg_parser *p, char* data, size_t length)
+{
+    int8_t element, attr;
+
+    vf_buf *buf = vf_buf_new(length);
+    vf_buf_write_bytes(buf, data, length);
+
+    for (;;) {
+        if (!vf_buf_read_i8(buf, &element)) goto out;
+        element = element % (musvg_element_LIMIT + 1);
+        if (element == musvg_element_none) {
+            musvg_stack_pop(p);
+            continue;
+        }
+
+        musvg_node temp = { element };
+        uint idx = musvg_node_add(p, &temp);
+        musvg_node *node = nodes_get(p,idx);
+        musvg_stack_push(p);
+
+        for (;;) {
+            if (!vf_buf_read_i8(buf, &attr)) goto out;
+            attr = attr % (musvg_attr_LIMIT + 1);
+            if (attr == musvg_attr_none) break;
+
+            musvg_attr_bitmap_set(&node->attr, attr);
+            const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
+            musvg_read_fn read_fn = musvg_binary_parsers[ti->type];
+            int ret = read_fn(buf, node, attr);
+        }
+    }
+
+out:
+    vf_buf_destroy(buf);
 }
 
 void musvg_parser_destroy(musvg_parser *p)
@@ -2651,31 +2658,49 @@ void musvg_parser_destroy(musvg_parser *p)
     free(p);
 }
 
-musvg_parser* musvg_parse_data(char* data, size_t length)
+musvg_parser* musvg_parse_xml_data(char* data, size_t length)
 {
     musvg_parser* p = musvg_parser_create();
-    musvg_parsexml(data, musvg_start_element, musvg_end_element, musvg_content, p);
+    musvg_parse_xml(data, musvg_start_element, musvg_end_element, musvg_content, p);
     return p;
 }
 
-musvg_parser* musvg_parse_file(const char* filename)
+musvg_parser* musvg_parse_binary_data(char* data, size_t length)
+{
+    musvg_parser* p = musvg_parser_create();
+    musvg_parse_binary(p, data, length);
+    return p;
+}
+
+musvg_span musvg_read_file(const char* filename)
 {
     FILE* fp;
-    size_t size;
-    char* data;
-    musvg_parser *p;
+    musvg_span span;
 
     assert((fp = fopen(filename, "rb")));
     assert(!fseek(fp, 0, SEEK_END));
-    assert((size = ftell(fp)));
+    assert((span.size = ftell(fp)));
     assert(!fseek(fp, 0, SEEK_SET));
-    assert((data = (char*)malloc(size + 1)));
-    assert(fread(data, 1, size, fp) == size);
-    data[size] = '\0';
+    assert((span.data = (char*)malloc(span.size + 1)));
+    assert(fread(span.data, 1, span.size, fp) == span.size);
+    span.data[span.size] = '\0';
     assert(!fclose(fp));
 
-    p = musvg_parse_data(data, size);
-    free(data);
+    return span;
+}
 
+musvg_parser* musvg_parse_xml_file(const char* filename)
+{
+    musvg_span span = musvg_read_file(filename);
+    musvg_parser *p = musvg_parse_xml_data(span.data, span.size);
+    free(span.data);
+    return p;
+}
+
+musvg_parser* musvg_parse_binary_file(const char* filename)
+{
+    musvg_span span = musvg_read_file(filename);
+    musvg_parser *p = musvg_parse_binary_data(span.data, span.size);
+    free(span.data);
     return p;
 }

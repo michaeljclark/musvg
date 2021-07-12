@@ -14,6 +14,8 @@
 
 #define DEBUG_ENCODING 0
 
+int debug = 0;
+
 /*
  * structure of ASN.1 tagged data
  *
@@ -2147,7 +2149,7 @@ int leb_u64_write(vf_buf *buf, const u64 *value)
     }
 
     len = (x == 0) ? 1 : 8 - ((clz(x) - 1) / 7) + 1;
-    if (buf->cb(buf, len)) {
+    if (buf->write_check(buf, len)) {
         return -1;
     }
     for (i = 0; i < len - 1; i++) {
@@ -2174,7 +2176,7 @@ int leb_u64_write_byval(vf_buf *buf, const u64 value)
     }
 
     len = (x == 0) ? 1 : 8 - ((clz(x) - 1) / 7) + 1;
-    if (buf->cb(buf, len)) {
+    if (buf->write_check(buf, len)) {
         return -1;
     }
     for (i = 0; i < len - 1; i++) {

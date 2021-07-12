@@ -49,6 +49,7 @@ typedef enum musvg_crop musvg_crop;
 typedef enum musvg_gradient_unit musvg_gradient_unit;
 typedef enum musvg_type musvg_type;
 typedef enum musvg_attr musvg_attr;
+typedef struct musvg_span musvg_span;
 typedef struct musvg_id musvg_id;
 typedef struct musvg_length musvg_length;
 typedef struct musvg_color musvg_color;
@@ -58,7 +59,6 @@ typedef struct musvg_transform musvg_transform;
 typedef struct musvg_dasharray musvg_dasharray;
 typedef struct musvg_path_op musvg_path_op;
 typedef struct musvg_attribute musvg_attribute;
-//typedef struct musvg_value musvg_value;
 typedef struct musvg_typeinfo_attr musvg_typeinfo_attr;
 typedef struct musvg_typeinfo_enum musvg_typeinfo_enum;
 typedef struct musvg_node_svg musvg_node_svg;
@@ -97,6 +97,7 @@ enum musvg_element {
     musvg_element_lgradient,
     musvg_element_rgradient,
     musvg_element_stop,
+    musvg_element_LIMIT = musvg_element_stop
 };
 enum musvg_attr {
     musvg_attr_none,
@@ -155,6 +156,7 @@ enum musvg_attr {
     musvg_attr_gradient_transform,
     musvg_attr_gradient_spread,
     musvg_attr_gradient_href,
+    musvg_attr_LIMIT = musvg_attr_gradient_href
 };
 /*
  * SVG path instructions from the 'd' attribute:
@@ -297,6 +299,12 @@ enum musvg_transform_type {
 };
 
 // SVG primitives
+
+struct musvg_span
+{
+    char* data;
+    size_t size;
+};
 
 struct musvg_id
 {
@@ -503,12 +511,13 @@ struct musvg_brush
 
 musvg_parser* musvg_parser_create();
 void musvg_emit_text(musvg_parser* musvg);
-void musvg_emit_html(musvg_parser* musvg);
+void musvg_emit_xml(musvg_parser* musvg);
 void musvg_emit_binary(musvg_parser* musvg);
 void musvg_parser_destroy(musvg_parser* musvg);
-musvg_parser* musvg_parse_data(char* data, size_t length);
-musvg_parser* musvg_parse_file(const char* filename);
-void musvg_set_debug(int level);
+musvg_parser* musvg_parse_xml_data(char* data, size_t length);
+musvg_parser* musvg_parse_binary_data(char* data, size_t length);
+musvg_parser* musvg_parse_xml_file(const char* filename);
+musvg_parser* musvg_parse_binary_file(const char* filename);
 
 #ifdef __cplusplus
 }
