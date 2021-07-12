@@ -49,7 +49,6 @@ static bench_result bench_parse_xml(llong count)
         musvg_span span = musvg_read_file("test/output/tiger-1.svg");
         musvg_parser *p = musvg_parse_xml_data(span.data, span.size);
         musvg_parser_destroy(p);
-        free(span.data);
     }
     auto et = high_resolution_clock::now();
 
@@ -64,7 +63,6 @@ static bench_result bench_parse_binary(llong count)
         musvg_span span = musvg_read_file("test/output/tiger-1.bin");
         musvg_parser *p = musvg_parse_binary_data(span.data, span.size);
         musvg_parser_destroy(p);
-        free(span.data);
     }
     auto et = high_resolution_clock::now();
 

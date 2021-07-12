@@ -2617,8 +2617,7 @@ void musvg_parse_binary(musvg_parser *p, char* data, size_t length)
 {
     int8_t element, attr;
 
-    vf_buf *buf = vf_buf_new(length);
-    vf_buf_write_bytes(buf, data, length);
+    vf_buf *buf = vf_buf_memory_new(data, length);
 
     for (;;) {
         if (!vf_buf_read_i8(buf, &element)) goto out;

@@ -83,6 +83,7 @@ struct vf_buf
     check_fn write_check; /* write overflow check */
     sync_fn  sync;        /* buffer read/write */
     int fd;               /* file descriptor */
+    int retain;           /* buffer ownership */
     void *userdata;       /* user data */
 };
 
@@ -90,6 +91,7 @@ static vf_buf* vf_buffered_reader_fd(int fd);
 static vf_buf* vf_buffered_writer_fd(int fd);
 static vf_buf* vf_buffered_reader_new(const char* filename);
 static vf_buf* vf_buffered_writer_new(const char* filename);
+static vf_buf* vf_buf_memory_new(char *data, size_t size);
 static vf_buf* vf_buf_new(size_t size);
 static vf_buf* vf_resizable_buf_new();
 static int vf_buf_resize(vf_buf *buf, size_t new_size);
@@ -224,6 +226,7 @@ static inline vf_buf* vf_buffered_reader_fd(int fd)
         .write_check = vf_buf_capacity_error,
         .sync = vf_buf_reader_sync,
         .fd = fd,
+        .retain = 0,
         .userdata = NULL
     };
     *buf = b;
@@ -243,6 +246,7 @@ static inline vf_buf* vf_buffered_writer_fd(int fd)
         .write_check = vf_buf_writer_check_capacity,
         .sync = vf_buf_writer_sync,
         .fd = fd,
+        .retain = 0,
         .userdata = NULL
     };
     *buf = b;
@@ -271,6 +275,26 @@ static inline vf_buf* vf_buf_new(size_t size)
         .write_check = vf_buf_fixed_check_write_capacity,
         .sync = NULL,
         .fd = -1,
+        .retain = 0,
+        .userdata = NULL
+    };
+    *buf = b;
+    return buf;
+}
+
+static inline vf_buf* vf_buf_memory_new(char *data, size_t size)
+{
+    vf_buf *buf = (vf_buf*)malloc(sizeof(vf_buf));
+    vf_buf b = {
+        .data = data,
+        .read_marker = 0,
+        .write_marker = size,
+        .buffer_size = size,
+        .read_check = vf_buf_fixed_check_read_capacity,
+        .write_check = vf_buf_fixed_check_write_capacity,
+        .sync = NULL,
+        .fd = -1,
+        .retain = 1,
         .userdata = NULL
     };
     *buf = b;
@@ -290,6 +314,7 @@ static inline vf_buf* vf_resizable_buf_new()
         .write_check = vf_buf_resizable_check_write_capacity,
         .sync = NULL,
         .fd = -1,
+        .retain = 0,
         .userdata = NULL
     };
     *buf = b;
@@ -323,7 +348,7 @@ static inline void vf_buf_destroy(vf_buf* buf)
         close(buf->fd);
         buf->fd = -1;
     }
-    if (buf->data) {
+    if (!buf->retain && buf->data) {
         free(buf->data);
         buf->data = NULL;
     }
