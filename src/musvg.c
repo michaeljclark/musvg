@@ -132,7 +132,7 @@ static uint array_buffer_add(array_buffer *sb, size_t stride, void *ptr)
 #define brushes_add(p,ptr) array_buffer_add(&p->brushes,sizeof(musvg_brush),ptr)
 #define brushes_destroy(p) array_buffer_destroy(&p->brushes)
 
-#define nodes_init(p) array_buffer_init(&p->nodes,sizeof(musvg_node),16)
+#define nodes_init(p) array_buffer_init(&p->nodes,sizeof(musvg_node),1024)
 #define nodes_count(p) array_buffer_count(&p->nodes)
 #define nodes_data(p) array_buffer_data(&p->nodes)
 #define nodes_size(p) array_buffer_size(&p->nodes,sizeof(musvg_node))
