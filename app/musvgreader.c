@@ -77,12 +77,14 @@ int main(int argc, char **argv)
     }
 
     switch (input_format) {
+    case format_none: /* unreachable */ break;
     case format_text: fprintf(stderr, "text input not supported\n"); exit(1);
     case format_xml: p = musvg_parse_xml_file(input_filename); break;
     case format_binary: p = musvg_parse_binary_file(input_filename); break;
     }
 
     switch (output_format) {
+    case format_none: /* unreachable */ break;
     case format_text: musvg_emit_text(p); break;
     case format_xml: musvg_emit_xml(p); break;
     case format_binary: musvg_emit_binary(p); break;
