@@ -31,5 +31,5 @@ target_link_libraries(musvgreader musvg ${EXTRA_LIBS})
 add_executable(test_vfbuf test/test_vfbuf.c)
 target_link_libraries(test_vfbuf musvg ${EXTRA_LIBS})
 
-add_executable(bench_io test/bench_io.cc)
-target_link_libraries(bench_io musvg ${EXTRA_LIBS})
+add_executable(bench_svg test/bench_svg.cc)
+target_link_libraries(bench_svg musvg ${EXTRA_LIBS})
