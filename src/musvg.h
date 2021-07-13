@@ -38,19 +38,22 @@ typedef unsigned long long ullong;
 typedef signed char musvg_small;
 
 #ifndef __cplusplus
-typedef enum musvg_path_opcode musvg_path_opcode;
-typedef enum musvg_brush_type musvg_brush_type;
-typedef enum musvg_spread_type musvg_spread_type;
-typedef enum musvg_linejoin_type musvg_linejoin_type;
-typedef enum musvg_linecap_type musvg_linecap_type;
-typedef enum musvg_fillrule_type musvg_fillrule_type;
-typedef enum musvg_unit musvg_unit;
-typedef enum musvg_display musvg_display;
-typedef enum musvg_align musvg_align;
-typedef enum musvg_crop musvg_crop;
-typedef enum musvg_gradient_unit musvg_gradient_unit;
-typedef enum musvg_type musvg_type;
-typedef enum musvg_attr musvg_attr;
+typedef enum musvg_path_opcode_t musvg_path_opcode_t;
+typedef enum musvg_format_t musvg_format_t;
+typedef enum musvg_brush_t musvg_brush_t;
+typedef enum musvg_spread_t musvg_spread_t;
+typedef enum musvg_linejoin_t musvg_linejoin_t;
+typedef enum musvg_linecap_t musvg_linecap_t;
+typedef enum musvg_fillrule_t musvg_fillrule_t;
+typedef enum musvg_unit_t musvg_unit_t;
+typedef enum musvg_display_t musvg_display_t;
+typedef enum musvg_align_t musvg_align_t;
+typedef enum musvg_crop_t musvg_crop_t;
+typedef enum musvg_gradient_unit_t musvg_gradient_unit_t;
+typedef enum musvg_gradient_spread_t musvg_gradient_spread_t;
+typedef enum musvg_element_t musvg_element_t;
+typedef enum musvg_attr_t musvg_attr_t;
+typedef enum musvg_type_t musvg_type_t;
 #endif
 
 typedef struct musvg_span musvg_span;
@@ -85,7 +88,14 @@ typedef struct musvg_parser musvg_parser;
 
 // SVG enums
 
-enum musvg_element {
+enum musvg_format_t {
+    musvg_format_none,
+    musvg_format_text,
+    musvg_format_xml,
+    musvg_format_binary_vf,
+    musvg_format_binary_ieee,
+};
+enum musvg_element_t {
     musvg_element_none,
     musvg_element_svg,
     musvg_element_g,
@@ -102,7 +112,7 @@ enum musvg_element {
     musvg_element_stop,
     musvg_element_LIMIT = musvg_element_stop
 };
-enum musvg_attr {
+enum musvg_attr_t {
     musvg_attr_none,
     musvg_attr_display,
     musvg_attr_fill,
@@ -184,7 +194,7 @@ enum musvg_attr {
  * curveto_quadratic_smooth_abs T (x y)+
  * curveto_quadratic_smooth_rel t (x y)+
  */
-enum musvg_path_opcode {
+enum musvg_path_opcode_t {
     musvg_path_none,
     musvg_path_closepath,
     musvg_path_moveto_abs,
@@ -206,13 +216,13 @@ enum musvg_path_opcode {
     musvg_path_curveto_quadratic_smooth_abs,
     musvg_path_curveto_quadratic_smooth_rel,
 };
-enum musvg_brush_type {
+enum musvg_brush_t {
     musvg_brush_default,
     musvg_brush_color,
     musvg_brush_linear_gradient,
     musvg_brush_radial_gradient
 };
-enum musvg_linecap_type {
+enum musvg_linecap_t {
     musvg_linecap_default,
     musvg_linecap_butt,
     musvg_linecap_round,
@@ -221,7 +231,7 @@ enum musvg_linecap_type {
     musvg_linecap_LIMIT = musvg_linecap_square,
     musvg_linecap_DEFAULT = musvg_linecap_butt
 };
-enum musvg_linejoin_type {
+enum musvg_linejoin_t {
     musvg_linejoin_default,
     musvg_linejoin_miter,
     musvg_linejoin_round,
@@ -230,7 +240,7 @@ enum musvg_linejoin_type {
     musvg_linejoin_LIMIT = musvg_linejoin_bevel,
     musvg_linejoin_DEFAULT = musvg_linejoin_miter
 };
-enum musvg_fillrule_type {
+enum musvg_fillrule_t {
     musvg_fillrule_default,
     musvg_fillrule_nonzero,
     musvg_fillrule_evenodd,
@@ -238,7 +248,7 @@ enum musvg_fillrule_type {
     musvg_fillrule_LIMIT = musvg_fillrule_evenodd,
     musvg_fillrule_DEFAULT = musvg_fillrule_nonzero
 };
-enum musvg_unit {
+enum musvg_unit_t {
     musvg_unit_default,
     musvg_unit_user,
     musvg_unit_px,
@@ -254,7 +264,7 @@ enum musvg_unit {
     musvg_unit_LIMIT = musvg_unit_ex,
     musvg_unit_DEFAULT = musvg_unit_user
 };
-enum musvg_display {
+enum musvg_display_t {
     musvg_display_default,
     musvg_display_inline,
     musvg_display_none,
@@ -262,7 +272,7 @@ enum musvg_display {
     musvg_display_LIMIT = musvg_display_none,
     musvg_display_DEFAULT = musvg_display_inline
 };
-enum musvg_align {
+enum musvg_align_t {
     musvg_align_default,
     musvg_align_none,
     musvg_align_min,
@@ -270,14 +280,14 @@ enum musvg_align {
     musvg_align_max,
     musvg_align_DEFAULT = musvg_align_mid
 };
-enum musvg_crop {
+enum musvg_crop_t {
     musvg_crop_default,
     musvg_crop_none,
     musvg_crop_meet,
     musvg_crop_slice,
     musvg_crop_DEFAULT = musvg_crop_meet
 };
-enum musvg_gradient_spread_type {
+enum musvg_gradient_spread_t {
     musvg_gradient_spread_default,
     musvg_gradient_spread_pad,
     musvg_gradient_spread_reflect,
@@ -285,14 +295,14 @@ enum musvg_gradient_spread_type {
     musvg_gradient_spread_LIMIT = musvg_gradient_spread_repeat,
     musvg_gradient_spread_DEFAULT = musvg_gradient_spread_pad
 };
-enum musvg_gradient_unit {
+enum musvg_gradient_unit_t {
     musvg_gradient_unit_default,
     musvg_gradient_unit_user,
     musvg_gradient_unit_obb,
     musvg_gradient_unit_LIMIT = musvg_gradient_unit_obb,
     musvg_gradient_unit_DEFAULT = musvg_gradient_unit_user
 };
-enum musvg_transform_type {
+enum musvg_transform_t {
     musvg_transform_matrix,
     musvg_transform_translate,
     musvg_transform_scale,
@@ -389,9 +399,9 @@ struct musvg_attribute
     musvg_length stop_offset;
 };
 
-// SVG accessor value
+// SVG type metadata
 
-enum musvg_type
+enum musvg_type_t
 {
     musvg_type_enum,
     musvg_type_id,
@@ -408,7 +418,7 @@ enum musvg_type
 
 struct musvg_typeinfo_attr
 {
-    musvg_type type;
+    musvg_type_t type;
     size_t offset;
 };
 
@@ -502,13 +512,20 @@ struct musvg_radial_gradient { float cx, cy, r, fx, fy; };
 
 struct musvg_brush
 {
-    musvg_brush_type type;
+    musvg_brush_t type;
     uint flat_color;
     uint point_offset, point_count;
     uint stop_offset, stop_count;
 };
 
 // SVG API
+
+musvg_format_t musvg_parse_format(const char *format);
+musvg_unit_t musvg_parse_units(const char* units);
+musvg_linecap_t musvg_parse_linecap(const char* str);
+musvg_linejoin_t musvg_parse_linejoin(const char* str);
+musvg_fillrule_t musvg_parse_fillrule(const char* str);
+musvg_display_t musvg_parse_display(const char* str);
 
 musvg_parser* musvg_parser_create();
 void musvg_emit_text(musvg_parser* musvg);
