@@ -53,21 +53,35 @@ static bench_result bench_parse_xml(llong count)
     auto et = high_resolution_clock::now();
 
     double t = (double)duration_cast<nanoseconds>(et - st).count();
-    return bench_result { "parse-xml", count, t, 8 * count };
+    return bench_result { "parse-svg-xml", count, t, 8 * count };
 }
 
-static bench_result bench_parse_binary(llong count)
+static bench_result bench_parse_binary_vf128(llong count)
 {
     auto st = high_resolution_clock::now();
     for (llong i = 0; i < count; i++) {
-        musvg_span span = musvg_read_file("test/output/tiger-1.bin");
-        musvg_parser *p = musvg_parse_binary_data(span.data, span.size);
+        musvg_span span = musvg_read_file("test/output/tiger-1.vfbin");
+        musvg_parser *p = musvg_parse_binary_vf_data(span.data, span.size);
         musvg_parser_destroy(p);
     }
     auto et = high_resolution_clock::now();
 
     double t = (double)duration_cast<nanoseconds>(et - st).count();
-    return bench_result { "parse-binary", count, t, 8 * count };
+    return bench_result { "parse-svg-binary-vf128", count, t, 8 * count };
+}
+
+static bench_result bench_parse_binary_ieee754(llong count)
+{
+    auto st = high_resolution_clock::now();
+    for (llong i = 0; i < count; i++) {
+        musvg_span span = musvg_read_file("test/output/tiger-1.ieeebin");
+        musvg_parser *p = musvg_parse_binary_ieee_data(span.data, span.size);
+        musvg_parser_destroy(p);
+    }
+    auto et = high_resolution_clock::now();
+
+    double t = (double)duration_cast<nanoseconds>(et - st).count();
+    return bench_result { "parse-svg-binary-ieee754", count, t, 8 * count };
 }
 
 static const char* format_unit(llong count)
@@ -106,7 +120,8 @@ static const char* format_comma(llong count)
 
 static bench_result(* const benchmarks[])(llong) = {
     bench_parse_xml,
-    bench_parse_binary,
+    bench_parse_binary_vf128,
+    bench_parse_binary_ieee754,
 };
 
 #define array_size(arr) ((sizeof(arr)/sizeof(arr[0])))

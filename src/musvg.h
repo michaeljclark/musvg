@@ -513,13 +513,16 @@ struct musvg_brush
 musvg_parser* musvg_parser_create();
 void musvg_emit_text(musvg_parser* musvg);
 void musvg_emit_xml(musvg_parser* musvg);
-void musvg_emit_binary(musvg_parser* musvg);
+void musvg_emit_binary_vf(musvg_parser* musvg);
+void musvg_emit_binary_ieee(musvg_parser* musvg);
 void musvg_parser_destroy(musvg_parser* musvg);
 musvg_span musvg_read_file(const char* filename);
 musvg_parser* musvg_parse_xml_data(char* data, size_t length);
-musvg_parser* musvg_parse_binary_data(char* data, size_t length);
+musvg_parser* musvg_parse_binary_vf_data(char* data, size_t length);
+musvg_parser* musvg_parse_binary_ieee_data(char* data, size_t length);
 musvg_parser* musvg_parse_xml_file(const char* filename);
-musvg_parser* musvg_parse_binary_file(const char* filename);
+musvg_parser* musvg_parse_binary_vf_file(const char* filename);
+musvg_parser* musvg_parse_binary_ieee_file(const char* filename);
 
 #ifdef __cplusplus
 }

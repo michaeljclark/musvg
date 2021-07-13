@@ -9,7 +9,8 @@ typedef enum {
     format_none,
     format_text,
     format_xml,
-    format_binary,
+    format_binary_vf,
+    format_binary_ieee,
 } format_t;
 
 format_t parse_format(const char *format)
@@ -18,8 +19,10 @@ format_t parse_format(const char *format)
         return format_text;
     } else if (strcmp(format, "xml") == 0) {
         return format_xml;
-    } else if (strcmp(format, "binary") == 0) {
-        return format_binary;
+    } else if (strcmp(format, "binary-vf") == 0) {
+        return format_binary_vf;
+    } else if (strcmp(format, "binary-ieee") == 0) {
+        return format_binary_ieee;
     } else {
         return format_none;
     }
@@ -67,11 +70,11 @@ int main(int argc, char **argv)
         fprintf(stderr,
             "\nusage: %s [options]\n"
             "\n"
-            "-f,--input-file <filename>            input filename\n"
-            "-i,--input-format (xml|binary)        input format\n"
-            "-o,--output-format (xml|text|binary)  output format\n"
-            "-d,--debug                            debug messages\n"
-            "-h,--help                             help information\n",
+            "-f,--input-file <filename>\n"
+            "-i,--input-format (xml|binary-vf|binary-ieee)\n"
+            "-o,--output-format (xml|text|binary-vf|binary-ieee)\n"
+            "-d,--debug\n"
+            "-h,--help\n",
             argv[0]);
         exit(1);
     }
@@ -80,14 +83,16 @@ int main(int argc, char **argv)
     case format_none: /* unreachable */ break;
     case format_text: fprintf(stderr, "text input not supported\n"); exit(1);
     case format_xml: p = musvg_parse_xml_file(input_filename); break;
-    case format_binary: p = musvg_parse_binary_file(input_filename); break;
+    case format_binary_vf: p = musvg_parse_binary_vf_file(input_filename); break;
+    case format_binary_ieee: p = musvg_parse_binary_ieee_file(input_filename); break;
     }
 
     switch (output_format) {
     case format_none: /* unreachable */ break;
     case format_text: musvg_emit_text(p); break;
     case format_xml: musvg_emit_xml(p); break;
-    case format_binary: musvg_emit_binary(p); break;
+    case format_binary_vf: musvg_emit_binary_vf(p); break;
+    case format_binary_ieee: musvg_emit_binary_ieee(p); break;
     }
     musvg_parser_destroy(p);
 
