@@ -138,7 +138,7 @@ static void print_rules(const char *prefix)
 static void print_result(const char *prefix, const char *name,
     llong count, double t, llong size)
 {
-    printf("%s%-24s %7s %7.2f %7.2f %7s\n",
+    printf("%s%-24s %7s %7.3f %7.3f %7s\n",
         prefix,
         name,
         format_unit(count),
