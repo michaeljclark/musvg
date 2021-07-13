@@ -103,6 +103,13 @@ static uint array_buffer_add(array_buffer *sb, size_t stride, void *ptr)
     return idx;
 }
 
+static void* array_buffer_alloc(array_buffer *sb, size_t stride)
+{
+    array_buffer_resize(sb, stride);
+    uint idx = sb->count++;
+    return sb->data + (idx * stride);
+}
+
 // SVG parser init
 
 #define points_init(p) array_buffer_init(&p->points,sizeof(float),16)
@@ -138,7 +145,7 @@ static uint array_buffer_add(array_buffer *sb, size_t stride, void *ptr)
 #define nodes_size(p) array_buffer_size(&p->nodes,sizeof(musvg_node))
 #define nodes_get(p,idx) ((musvg_node*)array_buffer_get(&p->nodes,sizeof(musvg_node),idx))
 #define nodes_resize(p) array_buffer_resize(&p->nodes,sizeof(musvg_node))
-#define nodes_add(p,ptr) array_buffer_add(&p->nodes,sizeof(musvg_node),ptr)
+#define nodes_alloc(p) array_buffer_alloc(&p->nodes,sizeof(musvg_node))
 #define nodes_destroy(p) array_buffer_destroy(&p->nodes)
 
 enum { musvg_max_depth = 256 };
@@ -1610,34 +1617,35 @@ static void musvg_stack_pop(musvg_parser *p)
     p->node_depth--;
 }
 
-static uint musvg_node_add(musvg_parser *p, musvg_node *node)
+static musvg_node* musvg_node_add(musvg_parser *p, uint type)
 {
-    node->parent = musvg_stack_top(p);
+    musvg_node *node = (musvg_node*)nodes_alloc(p);
+    node->type = type;
     node->next = musvg_node_sentinel;
-    uint idx = nodes_add(p, node);
-    nodes_get(p,idx)->p = p;
-    return idx;
+    node->parent = musvg_stack_top(p);
+    node->p = p;
+    return node;
 }
 
 // SVG node parsing
 
 static void musvg_parse_path(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_path };
+    musvg_node *node = musvg_node_add(p, musvg_element_path);
 
     int i;
     int nargs, opc, code, argc;
     float args[7];
     char item[64];
 
-    node.path.op_offset = path_ops_count(p);
+    node->path.op_offset = path_ops_count(p);
 
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1]))
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
             if (strcmp(a[i], "d") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_path_d);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_path_d);
                 const char *s = a[i + 1];
                 nargs = 0;
                 while (*s) {
@@ -1670,40 +1678,36 @@ static void musvg_parse_path(musvg_parser* p, const char** a)
         }
     }
 
-    node.path.op_count = path_ops_count(p) - node.path.op_offset;
-
-    musvg_node_add(p, &node);
+    node->path.op_count = path_ops_count(p) - node->path.op_offset;
 }
 
 static void musvg_parse_poly(musvg_parser* p, const char** a, int el_type)
 {
-    musvg_node node = { el_type };
+    musvg_node *node = musvg_node_add(p, el_type);
 
     int i;
     char item[64];
 
-    node.polygon.point_offset = points_count(p);
+    node->polygon.point_offset = points_count(p);
 
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1]))
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
             if (strcmp(a[i], "points") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_poly_points);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_poly_points);
                 const char *s = a[i + 1];
                 while (*s) {
                     s = musvg_get_next_path_item(s, item);
                     if (!*item) break;
                     float value = (float)musvg_atof(item);
-                    points_add(p,&value);
+                    points_add(p, &value);
                 }
             }
         }
     }
 
-    node.polygon.point_count = points_count(p) - node.polygon.point_offset;
-
-    musvg_node_add(p, &node);
+    node->polygon.point_count = points_count(p) - node->polygon.point_offset;
 }
 
 static void musvg_parse_polygon(musvg_parser* p, const char** a)
@@ -1718,205 +1722,191 @@ static void musvg_parse_polyline(musvg_parser* p, const char** a)
 
 static void musvg_parse_rect(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_rect };
+    musvg_node *node = musvg_node_add(p, musvg_element_rect);
 
     int i;
 
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1]))
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
             if (strcmp(a[i], "x") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rect_x);
-                node.rect.x = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rect_x);
+                node->rect.x = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "y") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rect_y);
-                node.rect.y = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rect_y);
+                node->rect.y = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "width") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rect_width);
-                node.rect.width = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rect_width);
+                node->rect.width = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "height") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rect_height);
-                node.rect.height = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rect_height);
+                node->rect.height = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "rx") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rect_rx);
-                node.rect.rx = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rect_rx);
+                node->rect.rx = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "ry") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rect_ry);
-                node.rect.ry = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rect_ry);
+                node->rect.ry = musvg_parse_length(a[i+1]);
             }
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 static void musvg_parse_circle(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_circle };
+    musvg_node *node = musvg_node_add(p, musvg_element_circle);
 
     int i;
 
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1]))
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
             if (strcmp(a[i], "cx") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_circle_cx);
-                node.circle.cx = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_circle_cx);
+                node->circle.cx = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "cy") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_circle_cy);
-                node.circle.cy = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_circle_cy);
+                node->circle.cy = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "r") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_circle_r);
-                node.circle.r = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_circle_r);
+                node->circle.r = musvg_parse_length(a[i+1]);
             }
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 static void musvg_parse_ellipse(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_ellipse };
+    musvg_node *node = musvg_node_add(p, musvg_element_ellipse);
 
     int i;
 
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1]))
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
             if (strcmp(a[i], "cx") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_ellipse_cx);
-                node.ellipse.cx = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_ellipse_cx);
+                node->ellipse.cx = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "cy") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_ellipse_cy);
-                node.ellipse.cy = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_ellipse_cy);
+                node->ellipse.cy = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "rx") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_ellipse_rx);
-                node.ellipse.rx = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_ellipse_rx);
+                node->ellipse.rx = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "ry") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_ellipse_ry);
-                node.ellipse.ry = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_ellipse_ry);
+                node->ellipse.ry = musvg_parse_length(a[i+1]);
             }
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 static void musvg_parse_line(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_line };
+    musvg_node *node = musvg_node_add(p, musvg_element_line);
 
     int i;
 
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1]))
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
             if (strcmp(a[i], "x1") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_line_x1);
-                node.line.x1 = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_line_x1);
+                node->line.x1 = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "y1") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_line_y1);
-                node.line.y1 = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_line_y1);
+                node->line.y1 = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "x2") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_line_x2);
-                node.line.x2 = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_line_x2);
+                node->line.x2 = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "y2") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_line_y2);
-                node.line.y2 = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_line_y2);
+                node->line.y2 = musvg_parse_length(a[i+1]);
             }
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 static void musvg_parse_defs(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_defs };
+    musvg_node *node = musvg_node_add(p, musvg_element_defs);
 
     int i;
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1])) {
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1])) {
             //
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 static void musvg_parse_g(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_g };
+    musvg_node *node = musvg_node_add(p, musvg_element_g);
 
     int i;
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1])) {
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1])) {
             //
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 static void musvg_parse_gradient(musvg_parser* p, const char** a, int el_type)
 {
-    musvg_node node = { el_type };
+    musvg_node *node = musvg_node_add(p, el_type);
 
     int i;
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1])) {
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1])) {
             if (strcmp(a[i], "x1") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_lgradient_x1);
-                node.lgradient.x1 = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_lgradient_x1);
+                node->lgradient.x1 = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "y1") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_lgradient_y1);
-                node.lgradient.y1 = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_lgradient_y1);
+                node->lgradient.y1 = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "x2") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_lgradient_x2);
-                node.lgradient.x2 = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_lgradient_x2);
+                node->lgradient.x2 = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "y2") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_lgradient_y2);
-                node.lgradient.y2 = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_lgradient_y2);
+                node->lgradient.y2 = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "cx") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rgradient_cx);
-                node.rgradient.cx = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rgradient_cx);
+                node->rgradient.cx = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "cy") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rgradient_cy);
-                node.rgradient.cy = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rgradient_cy);
+                node->rgradient.cy = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "r") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rgradient_r);
-                node.rgradient.r = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rgradient_r);
+                node->rgradient.r = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "fx") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rgradient_fx);
-                node.rgradient.fx = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rgradient_fx);
+                node->rgradient.fx = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "fy") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_rgradient_fy);
-                node.rgradient.fy = musvg_parse_length(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_rgradient_fy);
+                node->rgradient.fy = musvg_parse_length(a[i+1]);
             } else if (strcmp(a[i], "gradientUnits") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_gradient_units);
-                node.lgradient.units = musvg_parse_gradient_units(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_gradient_units);
+                node->lgradient.units = musvg_parse_gradient_units(a[i+1]);
             } else if (strcmp(a[i], "gradientTransform") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_gradient_transform);
-                node.lgradient.xform = musvg_parse_transform(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_gradient_transform);
+                node->lgradient.xform = musvg_parse_transform(a[i+1]);
             } else if (strcmp(a[i], "spreadMethod") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_gradient_spread);
-                node.lgradient.spread = musvg_parse_gradient_spread(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_gradient_spread);
+                node->lgradient.spread = musvg_parse_gradient_spread(a[i+1]);
             } else if (strcmp(a[i], "xlink:href") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_gradient_href);
-                node.lgradient.ref = musvg_parse_id(a[i+1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_gradient_href);
+                node->lgradient.ref = musvg_parse_id(a[i+1]);
             }
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 static void musvg_parse_lgradient(musvg_parser* p, const char** a)
@@ -1931,46 +1921,42 @@ static void musvg_parse_rgradient(musvg_parser* p, const char** a)
 
 static void musvg_parse_stop(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_stop };
+    musvg_node *node = musvg_node_add(p, musvg_element_stop);
 
     int i;
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1]))
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
             //
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 static void musvg_parse_svg(musvg_parser* p, const char** a)
 {
-    musvg_node node = { musvg_element_svg };
+    musvg_node *node = musvg_node_add(p, musvg_element_svg);
 
     int i;
     for (i = 0; a[i]; i += 2)
     {
-        if (!musvg_parse_attr(&node.attr, a[i], a[i + 1]))
+        if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
             if (strcmp(a[i], "width") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_svg_width);
-                node.svg.width = musvg_parse_length(a[i + 1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_svg_width);
+                node->svg.width = musvg_parse_length(a[i + 1]);
             } else if (strcmp(a[i], "height") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_svg_height);
-                node.svg.height = musvg_parse_length(a[i + 1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_svg_height);
+                node->svg.height = musvg_parse_length(a[i + 1]);
             } else if (strcmp(a[i], "viewBox") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_svg_viewbox);
-                node.svg.viewbox = musvg_parse_viewbox(a[i + 1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_svg_viewbox);
+                node->svg.viewbox = musvg_parse_viewbox(a[i + 1]);
             } else if (strcmp(a[i], "preserveAspectRatio") == 0) {
-                musvg_attr_bitmap_set(&node.attr, musvg_attr_svg_aspectratio);
-                node.svg.aspectratio = musvg_parse_aspectratio(a[i + 1]);
+                musvg_attr_bitmap_set(&node->attr, musvg_attr_svg_aspectratio);
+                node->svg.aspectratio = musvg_parse_aspectratio(a[i + 1]);
             }
         }
     }
-
-    musvg_node_add(p, &node);
 }
 
 struct musvg_element_meta {
@@ -2627,9 +2613,7 @@ void musvg_parse_binary(musvg_parser *p, char* data, size_t length)
             continue;
         }
 
-        musvg_node temp = { element };
-        uint idx = musvg_node_add(p, &temp);
-        musvg_node *node = nodes_get(p,idx);
+        musvg_node *node = musvg_node_add(p, element);
         musvg_stack_push(p);
 
         for (;;) {
