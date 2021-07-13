@@ -35,6 +35,7 @@ extern "C" {
 
 typedef unsigned uint;
 typedef unsigned long long ullong;
+typedef signed char musvg_small;
 
 #ifndef __cplusplus
 typedef enum musvg_path_opcode musvg_path_opcode;
@@ -65,7 +66,6 @@ typedef struct musvg_attribute musvg_attribute;
 typedef struct musvg_typeinfo_attr musvg_typeinfo_attr;
 typedef struct musvg_typeinfo_enum musvg_typeinfo_enum;
 typedef struct musvg_node_svg musvg_node_svg;
-typedef struct musvg_node_g musvg_node_g;
 typedef struct musvg_node_path musvg_node_path;
 typedef struct musvg_node_rect musvg_node_rect;
 typedef struct musvg_node_circle musvg_node_circle;
@@ -317,19 +317,19 @@ struct musvg_id
 struct musvg_length
 {
     float value;
-    char units;
+    musvg_small units;
 };
 
 struct musvg_color
 {
     uint color;
-    char present;
+    musvg_small present;
 };
 
 struct musvg_transform
 {
-    char type;
-    char nargs;
+    musvg_small type;
+    musvg_small nargs;
     float args[3];
     float xform[6];
 };
@@ -337,7 +337,7 @@ struct musvg_transform
 struct musvg_dasharray
 {
     float dashes[8];
-    char count;
+    musvg_small count;
 };
 
 struct musvg_viewbox
@@ -345,21 +345,21 @@ struct musvg_viewbox
     float x;
     float y;
     float width;
-    float height;    
+    float height;
 };
 
 struct musvg_aspectratio
 {
-    char alignX;
-    char alignY;
-    char alignType;
+    musvg_small alignX;
+    musvg_small alignY;
+    musvg_small alignType;
 };
 
 // SVG path operation
 
 struct musvg_path_op
 {
-    char code;
+    musvg_small code;
     uint point_offset;
     uint point_count;
 };
@@ -379,10 +379,10 @@ struct musvg_attribute
     musvg_length stroke_width;
     musvg_length stroke_dashoffset;
     musvg_dasharray stroke_dasharray;
-    char stroke_linejoin;
-    char stroke_linecap;
-    char fill_rule;
-    char display;
+    musvg_small stroke_linejoin;
+    musvg_small stroke_linecap;
+    musvg_small fill_rule;
+    musvg_small display;
     musvg_length font_size;
     musvg_color stop_color;
     float stop_opacity;
@@ -423,11 +423,10 @@ struct musvg_typeinfo_enum
 
 struct musvg_node_svg {
     musvg_viewbox viewbox;
-    musvg_aspectratio aspectratio; 
+    musvg_aspectratio aspectratio;
     musvg_length width;
     musvg_length height;
 };
-struct musvg_node_g { };
 struct musvg_node_path {
     uint op_offset, op_count;
 };
@@ -453,14 +452,14 @@ struct musvg_node_lgradient {
     uint gradient_id;
     musvg_id ref;
     musvg_transform xform;
-    char spread, units;
+    musvg_small spread, units;
     musvg_length x1, y1, x2, y2;
 };
 struct musvg_node_rgradient {
     uint gradient_id;
     musvg_id ref;
     musvg_transform xform;
-    char spread, units;
+    musvg_small spread, units;
     musvg_length cx, cy, r, fx, fy;
 };
 
@@ -474,7 +473,6 @@ struct musvg_node
     musvg_attribute attr;
     union {
         musvg_node_svg svg;
-        musvg_node_g g;
         musvg_node_path path;
         musvg_node_rect rect;
         musvg_node_circle circle;
