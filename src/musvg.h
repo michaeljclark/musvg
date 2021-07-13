@@ -518,7 +518,7 @@ struct musvg_brush
     uint stop_offset, stop_count;
 };
 
-// SVG API
+// SVG enum parsing
 
 musvg_format_t musvg_parse_format(const char *format);
 musvg_unit_t musvg_parse_units(const char* units);
@@ -527,19 +527,20 @@ musvg_linejoin_t musvg_parse_linejoin(const char* str);
 musvg_fillrule_t musvg_parse_fillrule(const char* str);
 musvg_display_t musvg_parse_display(const char* str);
 
+// SVG IO
+
+typedef struct vf_buf musvg_buf;
+
 musvg_parser* musvg_parser_create();
-void musvg_emit_text(musvg_parser* musvg);
-void musvg_emit_xml(musvg_parser* musvg);
-void musvg_emit_binary_vf(musvg_parser* musvg);
-void musvg_emit_binary_ieee(musvg_parser* musvg);
-void musvg_parser_destroy(musvg_parser* musvg);
+void musvg_parser_destroy(musvg_parser* p);
+
+int musvg_emit_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf);
+int musvg_emit_file(musvg_parser* p, musvg_format_t format, const char *filename);
+
+int musvg_parse_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf);
+int musvg_parse_file(musvg_parser* p, musvg_format_t format, const char *filename);
+
 musvg_span musvg_read_file(const char* filename);
-musvg_parser* musvg_parse_xml_data(char* data, size_t length);
-musvg_parser* musvg_parse_binary_vf_data(char* data, size_t length);
-musvg_parser* musvg_parse_binary_ieee_data(char* data, size_t length);
-musvg_parser* musvg_parse_xml_file(const char* filename);
-musvg_parser* musvg_parse_binary_vf_file(const char* filename);
-musvg_parser* musvg_parse_binary_ieee_file(const char* filename);
 
 #ifdef __cplusplus
 }

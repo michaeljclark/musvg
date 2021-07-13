@@ -47,8 +47,12 @@ static bench_result bench_parse_xml(llong count)
     auto st = high_resolution_clock::now();
     for (llong i = 0; i < count; i++) {
         musvg_span span = musvg_read_file("test/output/tiger-1.svg");
-        musvg_parser *p = musvg_parse_xml_data(span.data, span.size);
+        musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
+        musvg_parser *p = musvg_parser_create();
+        assert(!musvg_parse_buffer(p, musvg_format_xml, buf));
         musvg_parser_destroy(p);
+        vf_buf_destroy(buf);
+        free(span.data);
     }
     auto et = high_resolution_clock::now();
 
@@ -58,13 +62,19 @@ static bench_result bench_parse_xml(llong count)
 
 static bench_result bench_parse_binary_vf128(llong count)
 {
+
     auto st = high_resolution_clock::now();
     for (llong i = 0; i < count; i++) {
         musvg_span span = musvg_read_file("test/output/tiger-1.vfbin");
-        musvg_parser *p = musvg_parse_binary_vf_data(span.data, span.size);
+        musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
+        musvg_parser *p = musvg_parser_create();
+        assert(!musvg_parse_buffer(p, musvg_format_binary_vf, buf));
         musvg_parser_destroy(p);
+        vf_buf_destroy(buf);
+        free(span.data);
     }
     auto et = high_resolution_clock::now();
+
 
     double t = (double)duration_cast<nanoseconds>(et - st).count();
     return bench_result { "parse-svg-binary-vf128", count, t, 8 * count };
@@ -72,13 +82,19 @@ static bench_result bench_parse_binary_vf128(llong count)
 
 static bench_result bench_parse_binary_ieee754(llong count)
 {
+
     auto st = high_resolution_clock::now();
     for (llong i = 0; i < count; i++) {
         musvg_span span = musvg_read_file("test/output/tiger-1.ieeebin");
-        musvg_parser *p = musvg_parse_binary_ieee_data(span.data, span.size);
+        musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
+        musvg_parser *p = musvg_parser_create();
+        assert(!musvg_parse_buffer(p, musvg_format_binary_ieee, buf));
         musvg_parser_destroy(p);
+        vf_buf_destroy(buf);
+        free(span.data);
     }
     auto et = high_resolution_clock::now();
+
 
     double t = (double)duration_cast<nanoseconds>(et - st).count();
     return bench_result { "parse-svg-binary-ieee754", count, t, 8 * count };

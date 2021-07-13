@@ -14,6 +14,7 @@ int main(int argc, char **argv)
 {
     musvg_parser *p;
     const char* input_filename = NULL;
+    const char* output_filename = NULL;
     musvg_format_t input_format = musvg_format_xml;
     musvg_format_t output_format = musvg_format_xml;
     int help_exit = 0;
@@ -22,6 +23,8 @@ int main(int argc, char **argv)
     while (i < argc) {
         if (check_opt(argv[i],"-f","--input-file")   && i + 1 < argc) {
             input_filename = argv[++i];
+        } else if (check_opt(argv[i],"-f","--output-file")   && i + 1 < argc) {
+            output_filename = argv[++i];
         } else if (check_opt(argv[i],"-i","--input-format") && i + 1 < argc) {
             input_format = musvg_parse_format(argv[++i]);
         } else if (check_opt(argv[i],"-o","--output-format") && i + 1 < argc) {
@@ -39,7 +42,11 @@ int main(int argc, char **argv)
     }
 
     if (!input_filename) {
-        fprintf(stderr, "*** error: missing input filename\n");
+        fprintf(stderr, "*** error: missing --input-file parameter\n");
+        help_exit = 1;
+    }
+    if (!output_filename) {
+        fprintf(stderr, "*** error: missing --output-file parameter\n");
         help_exit = 1;
     }
 
@@ -56,21 +63,9 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    switch (input_format) {
-    case musvg_format_none: /* unreachable */ break;
-    case musvg_format_text: fprintf(stderr, "text input not supported\n"); exit(1);
-    case musvg_format_xml: p = musvg_parse_xml_file(input_filename); break;
-    case musvg_format_binary_vf: p = musvg_parse_binary_vf_file(input_filename); break;
-    case musvg_format_binary_ieee: p = musvg_parse_binary_ieee_file(input_filename); break;
-    }
-
-    switch (output_format) {
-    case musvg_format_none: /* unreachable */ break;
-    case musvg_format_text: musvg_emit_text(p); break;
-    case musvg_format_xml: musvg_emit_xml(p); break;
-    case musvg_format_binary_vf: musvg_emit_binary_vf(p); break;
-    case musvg_format_binary_ieee: musvg_emit_binary_ieee(p); break;
-    }
+    p = musvg_parser_create();
+    musvg_parse_file(p, input_format, input_filename);
+    musvg_emit_file(p, output_format, output_filename);
     musvg_parser_destroy(p);
 
     return 0;

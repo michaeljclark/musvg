@@ -597,7 +597,7 @@ static int musvg_parse_xml(char* input,
         }
     }
 
-    return 1;
+    return 0;
 }
 
 // SVG transform
@@ -2043,8 +2043,6 @@ musvg_parser* musvg_parser_create()
     return p;
 }
 
-typedef struct vf_buf musvg_buf;
-
 // binary readers
 
 int (*f32_read)(vf_buf *buf, float *value);
@@ -2567,48 +2565,63 @@ void musvg_emit_recurse(musvg_buf *buf, musvg_parser* p, uint i, uint j, uint d,
     }
 }
 
-void musvg_emit(musvg_parser* p, musvg_node_fn begin, musvg_node_fn end)
+void musvg_emit(musvg_buf *buf, musvg_parser* p, musvg_node_fn begin, musvg_node_fn end)
 {
     /*
      * currently we construct the entire output in memory, however, it will be
      * possible to use the buffer size check callback to incrementally flush.
      */
-    musvg_buf *buf = vf_resizable_buf_new();
     musvg_emit_recurse(buf, p, 0, nodes_count(p), 0, begin, end);
-    fwrite(buf->data, 1, buf->write_marker, stdout);
+}
+
+void musvg_emit_text(musvg_buf *buf, musvg_parser* p)
+{
+    musvg_emit(buf, p, musvg_emit_text_begin, musvg_emit_text_end);
+}
+
+void musvg_emit_xml(musvg_buf *buf, musvg_parser* p)
+{
+    musvg_emit(buf, p, musvg_emit_xml_begin, musvg_emit_xml_end);
+}
+
+void musvg_emit_binary_vf(musvg_buf *buf, musvg_parser* p)
+{
+    f32_write_byval = vf_f32_write_byval; /* todo - thread safety */
+    musvg_emit(buf, p, musvg_emit_binary_begin, musvg_emit_binary_end);
+}
+
+void musvg_emit_binary_ieee(musvg_buf *buf, musvg_parser* p)
+{
+    f32_write_byval = ieee754_f32_write_byval; /* todo - thread safety */
+    musvg_emit(buf, p, musvg_emit_binary_begin, musvg_emit_binary_end);
+}
+
+int musvg_emit_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf)
+{
+    switch (format) {
+    case musvg_format_text:        musvg_emit_text(buf, p);        break;
+    case musvg_format_xml:         musvg_emit_xml(buf, p);         break;
+    case musvg_format_binary_vf:   musvg_emit_binary_vf(buf, p);   break;
+    case musvg_format_binary_ieee: musvg_emit_binary_ieee(buf, p); break;
+    default: break;
+    }
+    return 0;
+}
+
+int musvg_emit_file(musvg_parser* p, musvg_format_t format, const char *filename)
+{
+    musvg_buf *buf = vf_buffered_writer_new(filename);
+    int ret = musvg_emit_buffer(p, format, buf);
     vf_buf_destroy(buf);
+    return ret;
 }
 
-void musvg_emit_text(musvg_parser* p)
-{
-    musvg_emit(p, musvg_emit_text_begin, musvg_emit_text_end);
-}
-
-void musvg_emit_xml(musvg_parser* p)
-{
-    musvg_emit(p, musvg_emit_xml_begin, musvg_emit_xml_end);
-}
-
-void musvg_emit_binary_vf(musvg_parser* p)
-{
-    f32_write_byval = vf_f32_write_byval;
-    musvg_emit(p, musvg_emit_binary_begin, musvg_emit_binary_end);
-}
-
-void musvg_emit_binary_ieee(musvg_parser* p)
-{
-    f32_write_byval = ieee754_f32_write_byval;
-    musvg_emit(p, musvg_emit_binary_begin, musvg_emit_binary_end);
-}
-
-void musvg_parse_binary(musvg_parser *p, char* data, size_t length)
+int musvg_parse_binary(musvg_buf *buf, musvg_parser *p)
 {
     musvg_small element, attr;
 
-    vf_buf *buf = vf_buf_memory_new(data, length);
-
     for (;;) {
-        if (!vf_buf_read_i8(buf, &element)) goto out;
+        if (!vf_buf_read_i8(buf, &element)) return 0;
         element = element % (musvg_element_LIMIT + 1);
         if (element == musvg_element_none) {
             musvg_stack_pop(p);
@@ -2619,7 +2632,7 @@ void musvg_parse_binary(musvg_parser *p, char* data, size_t length)
         musvg_stack_push(p);
 
         for (;;) {
-            if (!vf_buf_read_i8(buf, &attr)) goto out;
+            if (!vf_buf_read_i8(buf, &attr)) return -1;
             attr = attr % (musvg_attr_LIMIT + 1);
             if (attr == musvg_attr_none) break;
 
@@ -2630,8 +2643,7 @@ void musvg_parse_binary(musvg_parser *p, char* data, size_t length)
         }
     }
 
-out:
-    vf_buf_destroy(buf);
+    return 0;
 }
 
 void musvg_parser_destroy(musvg_parser *p)
@@ -2643,27 +2655,41 @@ void musvg_parser_destroy(musvg_parser *p)
     free(p);
 }
 
-musvg_parser* musvg_parse_xml_data(char* data, size_t length)
+int musvg_parse_svg_xml(musvg_buf *buf, musvg_parser* p)
 {
-    musvg_parser* p = musvg_parser_create();
-    musvg_parse_xml(data, musvg_start_element, musvg_end_element, musvg_content, p);
-    return p;
+    return musvg_parse_xml(buf->data, musvg_start_element, musvg_end_element, musvg_content, p);
 }
 
-musvg_parser* musvg_parse_binary_vf_data(char* data, size_t length)
+int musvg_parse_binary_vf(musvg_buf *buf, musvg_parser* p)
 {
     f32_read = vf_f32_read;
-    musvg_parser* p = musvg_parser_create();
-    musvg_parse_binary(p, data, length);
-    return p;
+    return musvg_parse_binary(buf, p);
 }
 
-musvg_parser* musvg_parse_binary_ieee_data(char* data, size_t length)
+int  musvg_parse_binary_ieee(musvg_buf *buf, musvg_parser* p)
 {
     f32_read = ieee754_f32_read;
-    musvg_parser* p = musvg_parser_create();
-    musvg_parse_binary(p, data, length);
-    return p;
+    return musvg_parse_binary(buf, p);
+}
+
+int musvg_parse_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf)
+{
+    switch (format) {
+    case musvg_format_xml:         return musvg_parse_svg_xml(buf, p);
+    case musvg_format_binary_vf:   return musvg_parse_binary_vf(buf, p);
+    case musvg_format_binary_ieee: return musvg_parse_binary_ieee(buf, p);
+    default: return -1;
+    }
+}
+
+int musvg_parse_file(musvg_parser* p, musvg_format_t format, const char *filename)
+{
+    musvg_span span = musvg_read_file(filename);
+    musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
+    int ret = musvg_parse_buffer(p, format, buf);
+    vf_buf_destroy(buf);
+    free(span.data);
+    return ret;
 }
 
 musvg_span musvg_read_file(const char* filename)
@@ -2681,28 +2707,4 @@ musvg_span musvg_read_file(const char* filename)
     assert(!fclose(fp));
 
     return span;
-}
-
-musvg_parser* musvg_parse_xml_file(const char* filename)
-{
-    musvg_span span = musvg_read_file(filename);
-    musvg_parser *p = musvg_parse_xml_data(span.data, span.size);
-    free(span.data);
-    return p;
-}
-
-musvg_parser* musvg_parse_binary_vf_file(const char* filename)
-{
-    musvg_span span = musvg_read_file(filename);
-    musvg_parser *p = musvg_parse_binary_vf_data(span.data, span.size);
-    free(span.data);
-    return p;
-}
-
-musvg_parser* musvg_parse_binary_ieee_file(const char* filename)
-{
-    musvg_span span = musvg_read_file(filename);
-    musvg_parser *p = musvg_parse_binary_ieee_data(span.data, span.size);
-    free(span.data);
-    return p;
 }
