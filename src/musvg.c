@@ -1078,7 +1078,6 @@ static musvg_length musvg_parse_length(const char* str)
     return length;
 }
 
-
 static musvg_viewbox musvg_parse_viewbox(const char* s)
 {
     musvg_viewbox viewbox = { 0, 0, 0, 0 };
