@@ -34,6 +34,7 @@ extern "C" {
 // SVG forward decls
 
 typedef unsigned uint;
+typedef long long llong;
 typedef unsigned long long ullong;
 typedef signed char musvg_small;
 
@@ -63,7 +64,7 @@ typedef struct musvg_color musvg_color;
 typedef struct musvg_viewbox musvg_viewbox;
 typedef struct musvg_aspectratio musvg_aspectratio;
 typedef struct musvg_points musvg_points;
-typedef struct musvg_path_ops musvg_path_ops;
+typedef struct musvg_path_d musvg_path_d;
 typedef struct musvg_transform musvg_transform;
 typedef struct musvg_dasharray musvg_dasharray;
 typedef struct musvg_path_op musvg_path_op;
@@ -80,6 +81,7 @@ typedef struct musvg_node_polyline musvg_node_polyline;
 typedef struct musvg_node_polygon musvg_node_polygon;
 typedef struct musvg_node_lgradient musvg_node_lgradient;
 typedef struct musvg_node_rgradient musvg_node_rgradient;
+typedef struct musvg_offset musvg_offset;
 typedef struct musvg_node musvg_node;
 typedef struct musvg_gradient_stop musvg_gradient_stop;
 typedef struct musvg_linear_gradient musvg_linear_gradient;
@@ -135,38 +137,25 @@ enum musvg_attr_t {
     musvg_attr_stroke_miterlimit,
     musvg_attr_style,
     musvg_attr_transform,
-    musvg_attr_svg_width,
-    musvg_attr_svg_height,
     musvg_attr_svg_viewbox,
     musvg_attr_svg_aspectratio,
     musvg_attr_path_d,
     musvg_attr_poly_points,
-    musvg_attr_rect_x,
-    musvg_attr_rect_y,
-    musvg_attr_rect_width,
-    musvg_attr_rect_height,
-    musvg_attr_rect_rx,
-    musvg_attr_rect_ry,
-    musvg_attr_circle_cx,
-    musvg_attr_circle_cy,
-    musvg_attr_circle_r,
-    musvg_attr_ellipse_cx,
-    musvg_attr_ellipse_cy,
-    musvg_attr_ellipse_rx,
-    musvg_attr_ellipse_ry,
-    musvg_attr_line_x1,
-    musvg_attr_line_y1,
-    musvg_attr_line_x2,
-    musvg_attr_line_y2,
-    musvg_attr_lgradient_x1,
-    musvg_attr_lgradient_y1,
-    musvg_attr_lgradient_x2,
-    musvg_attr_lgradient_y2,
-    musvg_attr_rgradient_cx,
-    musvg_attr_rgradient_cy,
-    musvg_attr_rgradient_r,
-    musvg_attr_rgradient_fx,
-    musvg_attr_rgradient_fy,
+    musvg_attr_width,
+    musvg_attr_height,
+    musvg_attr_x,
+    musvg_attr_y,
+    musvg_attr_r,
+    musvg_attr_rx,
+    musvg_attr_ry,
+    musvg_attr_cx,
+    musvg_attr_cy,
+    musvg_attr_x1,
+    musvg_attr_y1,
+    musvg_attr_x2,
+    musvg_attr_y2,
+    musvg_attr_fx,
+    musvg_attr_fy,
     musvg_attr_gradient_units,
     musvg_attr_gradient_transform,
     musvg_attr_gradient_spread,
@@ -380,35 +369,10 @@ struct musvg_path_op
     uint point_count;
 };
 
-struct musvg_path_ops
+struct musvg_path_d
 {
     uint op_offset;
     uint op_count;
-};
-
-// SVG common attributes
-
-struct musvg_attribute
-{
-    ullong bitmap;
-    musvg_id id;
-    musvg_transform xform;
-    musvg_color fill_color;
-    musvg_color stroke_color;
-    float fill_opacity;
-    float stroke_opacity;
-    float stroke_miterlimit;
-    musvg_length stroke_width;
-    musvg_length stroke_dashoffset;
-    musvg_dasharray stroke_dasharray;
-    musvg_small stroke_linejoin;
-    musvg_small stroke_linecap;
-    musvg_small fill_rule;
-    musvg_small display;
-    musvg_length font_size;
-    musvg_color stop_color;
-    float stop_opacity;
-    musvg_length stop_offset;
 };
 
 // SVG type metadata
@@ -431,80 +395,36 @@ enum musvg_type_t
 struct musvg_typeinfo_attr
 {
     musvg_type_t type;
-    size_t offset;
 };
+
+typedef musvg_small (*parse_enum_fn)(const char* units);
 
 struct musvg_typeinfo_enum
 {
     const char ** names;
     size_t limit;
     size_t defalt;
+    parse_enum_fn parse;
 };
 
 // SVG node
 
-struct musvg_node_svg {
-    musvg_viewbox viewbox;
-    musvg_aspectratio aspectratio;
-    musvg_length width;
-    musvg_length height;
-};
-struct musvg_node_path {
-    musvg_path_ops ops;
-};
-struct musvg_node_rect {
-    musvg_length x, y, width, height, rx, ry;
-};
-struct musvg_node_circle {
-    musvg_length cx, cy, r;
-};
-struct musvg_node_ellipse {
-    musvg_length cx, cy, rx, ry;
-};
-struct musvg_node_line {
-    musvg_length x1, y1, x2, y2;
-};
-struct musvg_node_polyline {
-    musvg_points pts;
-};
-struct musvg_node_polygon {
-    musvg_points pts;
-};
-struct musvg_node_lgradient {
-    uint gradient_id;
-    musvg_id ref;
-    musvg_transform xform;
-    musvg_small spread, units;
-    musvg_length x1, y1, x2, y2;
-};
-struct musvg_node_rgradient {
-    uint gradient_id;
-    musvg_id ref;
-    musvg_transform xform;
-    musvg_small spread, units;
-    musvg_length cx, cy, r, fx, fy;
-};
-
 enum { musvg_node_sentinel = -1 };
+
+struct musvg_offset
+{
+    ullong attr_type : 8;
+    ullong attr_offset : 56;
+};
 
 struct musvg_node
 {
     uint type;
     int next;
     int parent;
-    musvg_attribute attr;
-    union {
-        musvg_node_svg svg;
-        musvg_node_path path;
-        musvg_node_rect rect;
-        musvg_node_circle circle;
-        musvg_node_ellipse ellipse;
-        musvg_node_line line;
-        musvg_node_polyline polyline;
-        musvg_node_polygon polygon;
-        musvg_node_lgradient lgradient;
-        musvg_node_rgradient rgradient;
-    };
+    ullong bitmap;
+    uint attr_offset;
+    uint attr_count;
     musvg_parser *p;
 };
 
@@ -532,12 +452,14 @@ struct musvg_brush
 
 // SVG enum parsing
 
-musvg_format_t musvg_parse_format(const char *format);
-musvg_unit_t musvg_parse_units(const char* units);
-musvg_linecap_t musvg_parse_linecap(const char* str);
-musvg_linejoin_t musvg_parse_linejoin(const char* str);
-musvg_fillrule_t musvg_parse_fillrule(const char* str);
-musvg_display_t musvg_parse_display(const char* str);
+musvg_small musvg_parse_format(const char *format);
+musvg_small musvg_parse_units(const char* units);
+musvg_small musvg_parse_linecap(const char* str);
+musvg_small musvg_parse_linejoin(const char* str);
+musvg_small musvg_parse_fillrule(const char* str);
+musvg_small musvg_parse_display(const char* str);
+musvg_small musvg_parse_gradient_spread(const char* str);
+musvg_small musvg_parse_gradient_units(const char* str);
 
 // SVG IO
 
