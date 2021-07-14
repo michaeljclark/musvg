@@ -1470,6 +1470,65 @@ static musvg_id musvg_parse_id(const char* str)
     return id;
 }
 
+static musvg_points musvg_parse_points(musvg_parser *p, const char *s)
+{
+    char item[64];
+
+    musvg_points pts = { points_count(p) };
+
+    while (*s) {
+        s = musvg_get_next_path_item(s, item);
+        if (!*item) break;
+        float value = (float)musvg_atof(item);
+        points_add(p, &value);
+    }
+
+    pts.point_count = points_count(p) - pts.point_offset;
+
+    return pts;
+}
+
+static musvg_path_ops musvg_parse_path_ops(musvg_parser *p, const char *s)
+{
+    int nargs, opc, code, argc;
+    float args[7];
+    char item[64];
+
+    musvg_path_ops ops = { path_ops_count(p) };
+
+    nargs = 0;
+    while (*s) {
+        s = musvg_get_next_path_item(s, item);
+        if (!*item) break;
+        int is_length = musvg_is_length(item);
+        if (nargs == 0 && !is_length) {
+            opc = item[0];
+            code = musvg_parse_opcode(opc);
+            argc = musvg_path_opcode_t_arg_count(code);
+            if (code != 0 && argc == 0) {
+                musvg_path_op path_op = { code, 0, 0 };
+                path_ops_add(p, &path_op);
+            }
+            continue;
+        }
+        float value = (float)musvg_atof(item);
+        args[nargs] = value;
+        if (nargs == argc - 1) {
+            uint points_offset = points_count(p);
+            for (uint i = 0; i < argc; i++) {
+                points_add(p, args + i);
+            }
+            musvg_path_op path_op = { code, points_offset, argc };
+            path_ops_add(p, &path_op);
+        }
+        nargs = (nargs + 1) % argc;
+    }
+
+    ops.op_count = path_ops_count(p) - ops.op_offset;
+
+    return ops;
+}
+
 // SVG attribute parsing
 
 static void musvg_parse_style(musvg_attribute* attr, const char* str);
@@ -1647,11 +1706,6 @@ static void musvg_parse_path(musvg_parser* p, const char** a)
     musvg_node *node = musvg_node_add(p, musvg_element_path);
 
     int i;
-    int nargs, opc, code, argc;
-    float args[7];
-    char item[64];
-
-    node->path.op_offset = path_ops_count(p);
 
     for (i = 0; a[i]; i += 2)
     {
@@ -1659,39 +1713,10 @@ static void musvg_parse_path(musvg_parser* p, const char** a)
         {
             if (strcmp(a[i], "d") == 0) {
                 musvg_attr_bitmap_set(&node->attr, musvg_attr_path_d);
-                const char *s = a[i + 1];
-                nargs = 0;
-                while (*s) {
-                    s = musvg_get_next_path_item(s, item);
-                    if (!*item) break;
-                    int is_length = musvg_is_length(item);
-                    if (nargs == 0 && !is_length) {
-                        opc = item[0];
-                        code = musvg_parse_opcode(opc);
-                        argc = musvg_path_opcode_t_arg_count(code);
-                        if (code != 0 && argc == 0) {
-                            musvg_path_op path_op = { code, 0, 0 };
-                            path_ops_add(p, &path_op);
-                        }
-                        continue;
-                    }
-                    float value = (float)musvg_atof(item);
-                    args[nargs] = value;
-                    if (nargs == argc - 1) {
-                        uint points_offset = points_count(p);
-                        for (uint i = 0; i < argc; i++) {
-                            points_add(p, args + i);
-                        }
-                        musvg_path_op path_op = { code, points_offset, argc };
-                        path_ops_add(p, &path_op);
-                    }
-                    nargs = (nargs + 1) % argc;
-                }
+                node->path.ops = musvg_parse_path_ops(p, a[i + 1]);
             }
         }
     }
-
-    node->path.op_count = path_ops_count(p) - node->path.op_offset;
 }
 
 static void musvg_parse_poly(musvg_parser* p, const char** a, int el_t)
@@ -1699,9 +1724,6 @@ static void musvg_parse_poly(musvg_parser* p, const char** a, int el_t)
     musvg_node *node = musvg_node_add(p, el_t);
 
     int i;
-    char item[64];
-
-    node->polygon.point_offset = points_count(p);
 
     for (i = 0; a[i]; i += 2)
     {
@@ -1709,18 +1731,10 @@ static void musvg_parse_poly(musvg_parser* p, const char** a, int el_t)
         {
             if (strcmp(a[i], "points") == 0) {
                 musvg_attr_bitmap_set(&node->attr, musvg_attr_poly_points);
-                const char *s = a[i + 1];
-                while (*s) {
-                    s = musvg_get_next_path_item(s, item);
-                    if (!*item) break;
-                    float value = (float)musvg_atof(item);
-                    points_add(p, &value);
-                }
+                node->polygon.pts = musvg_parse_points(p, a[i + 1]);
             }
         }
     }
-
-    node->polygon.point_count = points_count(p) - node->polygon.point_offset;
 }
 
 static void musvg_parse_polygon(musvg_parser* p, const char** a)
@@ -2152,9 +2166,9 @@ int musvg_read_binary_path(musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     ullong count = 0;
     assert(!vlu_u64_read(buf, &count));
-    node->path.op_offset = path_ops_count(node->p);
-    node->path.op_count = count;
-    for (uint j = 0; j < node->path.op_count; j++) {
+    node->path.ops.op_offset = path_ops_count(node->p);
+    node->path.ops.op_count = count;
+    for (uint j = 0; j < node->path.ops.op_count; j++) {
         ullong count = 0; musvg_small code = 0;
         assert(vf_buf_read_i8(buf, (int8_t*)&code));
         assert(!vlu_u64_read(buf, &count));
@@ -2173,9 +2187,9 @@ int musvg_read_binary_points(musvg_buf *buf, musvg_node *node, musvg_attr_t attr
 {
     ullong count = 0;
     assert(!vlu_u64_read(buf, &count));
-    node->polygon.point_offset = points_count(node->p);
-    node->polygon.point_count = count;
-    for (uint j = 0; j < node->polygon.point_count; j++) {
+    node->polygon.pts.point_offset = points_count(node->p);
+    node->polygon.pts.point_count = count;
+    for (uint j = 0; j < node->polygon.pts.point_count; j++) {
         float f = 0;
         assert(!f32_read(buf, &f));
         points_add(node->p, &f);
@@ -2274,10 +2288,10 @@ int musvg_write_binary_aspectratio(musvg_buf *buf, musvg_node *node, musvg_attr_
 
 int musvg_write_binary_path(musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
-    ullong count = node->path.op_count;
+    ullong count = node->path.ops.op_count;
     assert(!vlu_u64_write(buf, &count));
-    for (uint j = 0; j < node->path.op_count; j++) {
-        const  musvg_path_op *path_op = path_ops_get(node->p, node->path.op_offset + j);
+    for (uint j = 0; j < node->path.ops.op_count; j++) {
+        const  musvg_path_op *path_op = path_ops_get(node->p, node->path.ops.op_offset + j);
         musvg_small code = path_op->code;
         ullong count = path_op->point_count;
         assert(vf_buf_write_i8(buf, (int8_t)code));
@@ -2292,10 +2306,10 @@ int musvg_write_binary_path(musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 
 int musvg_write_binary_points(musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
-    const float *v = points_get(node->p,node->polygon.point_offset);
-    ullong count = node->polygon.point_count;
+    const float *v = points_get(node->p,node->polygon.pts.point_offset);
+    ullong count = node->polygon.pts.point_count;
     assert(!vlu_u64_write(buf, &count));
-    for (uint j = 0; j < node->polygon.point_count; j++) {
+    for (uint j = 0; j < node->polygon.pts.point_count; j++) {
         assert(!f32_write_byval(buf, v[j]));
     }
     return 0;
@@ -2393,9 +2407,9 @@ int musvg_write_text_aspectratio(musvg_buf *buf, musvg_node *node, musvg_attr_t 
 int musvg_write_text_path(musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     char last_code = 0;
-    for (uint j = 0; j < node->path.op_count; j++) {
+    for (uint j = 0; j < node->path.ops.op_count; j++) {
         char str[128];
-        const musvg_path_op *path_op = path_ops_get(node->p,node->path.op_offset + j);
+        const musvg_path_op *path_op = path_ops_get(node->p,node->path.ops.op_offset + j);
         int8_t code = musvg_path_opcode_t_cmd_char(path_op->code);
         assert(vf_buf_write_i8(buf, code != last_code ? code : ' '));
         const float *v = points_get(node->p,path_op->point_offset);
@@ -2411,8 +2425,8 @@ int musvg_write_text_path(musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 
 int musvg_write_text_points(musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
-    const float *v = points_get(node->p,node->polygon.point_offset);
-    for (uint j = 0; j < node->polygon.point_count; j++) {
+    const float *v = points_get(node->p,node->polygon.pts.point_offset);
+    for (uint j = 0; j < node->polygon.pts.point_count; j++) {
         char str[128];
         if (j > 0) assert(vf_buf_write_i8(buf, j % 2 ? ',' : ' '));
         int len = snprintf(str, sizeof(str), "%.8g", v[j]);

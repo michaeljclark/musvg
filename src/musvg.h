@@ -62,6 +62,8 @@ typedef struct musvg_length musvg_length;
 typedef struct musvg_color musvg_color;
 typedef struct musvg_viewbox musvg_viewbox;
 typedef struct musvg_aspectratio musvg_aspectratio;
+typedef struct musvg_points musvg_points;
+typedef struct musvg_path_ops musvg_path_ops;
 typedef struct musvg_transform musvg_transform;
 typedef struct musvg_dasharray musvg_dasharray;
 typedef struct musvg_path_op musvg_path_op;
@@ -365,13 +367,23 @@ struct musvg_aspectratio
     musvg_small alignType;
 };
 
-// SVG path operation
+struct musvg_points
+{
+    uint point_offset;
+    uint point_count;
+};
 
 struct musvg_path_op
 {
     musvg_small code;
     uint point_offset;
     uint point_count;
+};
+
+struct musvg_path_ops
+{
+    uint op_offset;
+    uint op_count;
 };
 
 // SVG common attributes
@@ -438,7 +450,7 @@ struct musvg_node_svg {
     musvg_length height;
 };
 struct musvg_node_path {
-    uint op_offset, op_count;
+    musvg_path_ops ops;
 };
 struct musvg_node_rect {
     musvg_length x, y, width, height, rx, ry;
@@ -453,10 +465,10 @@ struct musvg_node_line {
     musvg_length x1, y1, x2, y2;
 };
 struct musvg_node_polyline {
-    uint point_offset, point_count;
+    musvg_points pts;
 };
 struct musvg_node_polygon {
-    uint point_offset, point_count;
+    musvg_points pts;
 };
 struct musvg_node_lgradient {
     uint gradient_id;
