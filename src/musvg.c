@@ -1705,9 +1705,7 @@ static void musvg_parse_path(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_path);
 
-    int i;
-
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
@@ -1723,9 +1721,7 @@ static void musvg_parse_poly(musvg_parser* p, const char** a, int el_t)
 {
     musvg_node *node = musvg_node_add(p, el_t);
 
-    int i;
-
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
@@ -1751,9 +1747,7 @@ static void musvg_parse_rect(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_rect);
 
-    int i;
-
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
@@ -1784,9 +1778,7 @@ static void musvg_parse_circle(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_circle);
 
-    int i;
-
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
@@ -1808,9 +1800,7 @@ static void musvg_parse_ellipse(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_ellipse);
 
-    int i;
-
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
@@ -1835,9 +1825,7 @@ static void musvg_parse_line(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_line);
 
-    int i;
-
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
@@ -1862,8 +1850,7 @@ static void musvg_parse_defs(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_defs);
 
-    int i;
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1])) {
             //
@@ -1875,8 +1862,7 @@ static void musvg_parse_g(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_g);
 
-    int i;
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1])) {
             //
@@ -1888,8 +1874,7 @@ static void musvg_parse_gradient(musvg_parser* p, const char** a, int el_t)
 {
     musvg_node *node = musvg_node_add(p, el_t);
 
-    int i;
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1])) {
             if (strcmp(a[i], "x1") == 0) {
@@ -1950,8 +1935,7 @@ static void musvg_parse_stop(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_stop);
 
-    int i;
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
@@ -1964,8 +1948,7 @@ static void musvg_parse_svg(musvg_parser* p, const char** a)
 {
     musvg_node *node = musvg_node_add(p, musvg_element_svg);
 
-    int i;
-    for (i = 0; a[i]; i += 2)
+    for (uint i = 0; a[i]; i += 2)
     {
         if (!musvg_parse_attr(&node->attr, a[i], a[i + 1]))
         {
