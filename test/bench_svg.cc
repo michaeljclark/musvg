@@ -41,64 +41,35 @@ static void _millisleep(llong sleep_ms)
 }
 
 struct bench_result { const char *name; llong count; double t; llong size; };
+struct bench_info { const char *name; const char *path; musvg_format_t format; };
+typedef bench_result (*bench_fn)(llong count, bench_info *info);
+struct benchmark { bench_fn fn; bench_info info; };
 
-static bench_result bench_parse_xml(llong count)
+static bench_result bench_parse(llong count, bench_info *info)
 {
-    auto st = high_resolution_clock::now();
-    for (llong i = 0; i < count; i++) {
-        musvg_span span = musvg_read_file("test/output/tiger-1.svg");
-        musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
-        musvg_parser *p = musvg_parser_create();
-        assert(!musvg_parse_buffer(p, musvg_format_xml, buf));
-        musvg_parser_destroy(p);
-        vf_buf_destroy(buf);
-        free(span.data);
-    }
-    auto et = high_resolution_clock::now();
-
-    double t = (double)duration_cast<nanoseconds>(et - st).count();
-    return bench_result { "parse-svg-xml", count, t, 8 * count };
-}
-
-static bench_result bench_parse_binary_vf128(llong count)
-{
+    musvg_span span = musvg_read_file(info->path);
 
     auto st = high_resolution_clock::now();
     for (llong i = 0; i < count; i++) {
-        musvg_span span = musvg_read_file("test/output/tiger-1.vfbin");
         musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
         musvg_parser *p = musvg_parser_create();
-        assert(!musvg_parse_buffer(p, musvg_format_binary_vf, buf));
+        assert(!musvg_parse_buffer(p, info->format, buf));
         musvg_parser_destroy(p);
         vf_buf_destroy(buf);
-        free(span.data);
     }
     auto et = high_resolution_clock::now();
 
+    free(span.data);
 
     double t = (double)duration_cast<nanoseconds>(et - st).count();
-    return bench_result { "parse-svg-binary-vf128", count, t, 8 * count };
+    return bench_result { info->name, count, t, (llong)span.size };
 }
 
-static bench_result bench_parse_binary_ieee754(llong count)
-{
-
-    auto st = high_resolution_clock::now();
-    for (llong i = 0; i < count; i++) {
-        musvg_span span = musvg_read_file("test/output/tiger-1.ieeebin");
-        musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
-        musvg_parser *p = musvg_parser_create();
-        assert(!musvg_parse_buffer(p, musvg_format_binary_ieee, buf));
-        musvg_parser_destroy(p);
-        vf_buf_destroy(buf);
-        free(span.data);
-    }
-    auto et = high_resolution_clock::now();
-
-
-    double t = (double)duration_cast<nanoseconds>(et - st).count();
-    return bench_result { "parse-svg-binary-ieee754", count, t, 8 * count };
-}
+static benchmark benchmarks[] = {
+    { &bench_parse, { "parse-svg-xml",            "test/output/tiger-1.svg" ,    musvg_format_xml         } },
+    { &bench_parse, { "parse-svg-binary-vf128",   "test/output/tiger-1.vfbin",   musvg_format_binary_vf   } },
+    { &bench_parse, { "parse-svg-binary-ieee754", "test/output/tiger-1.ieeebin", musvg_format_binary_ieee } }
+};
 
 static const char* format_unit(llong count)
 {
@@ -133,12 +104,6 @@ static const char* format_comma(llong count)
 
     return buf;
 }
-
-static bench_result(* const benchmarks[])(llong) = {
-    bench_parse_xml,
-    bench_parse_binary_vf128,
-    bench_parse_binary_ieee754,
-};
 
 #define array_size(arr) ((sizeof(arr)/sizeof(arr[0])))
 
@@ -191,7 +156,8 @@ static void run_benchmark(size_t n, llong repeat, llong count, llong pause_ms)
         print_rules("       ");
     }
     for (llong i = 0; i < llabs(repeat); i++) {
-        bench_result r = benchmarks[n](count);
+        benchmark *bench = benchmarks + n;
+        bench_result r = bench->fn(count, &bench->info);
         name = r.name;
         size = r.size;
         if (min_t == 0. || r.t < min_t) min_t = r.t;
