@@ -15,8 +15,8 @@ int main(int argc, char **argv)
     musvg_parser *p;
     const char* input_filename = NULL;
     const char* output_filename = NULL;
-    musvg_format_t input_format = musvg_format_xml;
-    musvg_format_t output_format = musvg_format_xml;
+    musvg_format_t input_format = musvg_format_none;
+    musvg_format_t output_format = musvg_format_none;
     int help_exit = 0;
 
     int i = 1;
@@ -47,6 +47,14 @@ int main(int argc, char **argv)
     }
     if (!output_filename) {
         fprintf(stderr, "*** error: missing --output-file parameter\n");
+        help_exit = 1;
+    }
+    if (!input_format) {
+        fprintf(stderr, "*** error: missing --input-format parameter\n");
+        help_exit = 1;
+    }
+    if (!output_format) {
+        fprintf(stderr, "*** error: missing --output-format parameter\n");
         help_exit = 1;
     }
 
