@@ -215,7 +215,7 @@ static inline int vf_buf_writer_sync(vf_buf *buf)
 
 static inline vf_buf* vf_buffered_reader_fd(int fd)
 {
-    const size_t size = 512;
+    const size_t size = 4096;
     vf_buf *buf = (vf_buf*)malloc(sizeof(vf_buf));
     vf_buf b = {
         .data = (char*)malloc(size),
@@ -235,7 +235,7 @@ static inline vf_buf* vf_buffered_reader_fd(int fd)
 
 static inline vf_buf* vf_buffered_writer_fd(int fd)
 {
-    const size_t size = 512;
+    const size_t size = 4096;
     vf_buf *buf = (vf_buf*)malloc(sizeof(vf_buf));
     vf_buf b = {
         .data = (char*)malloc(size),
@@ -303,7 +303,7 @@ static inline vf_buf* vf_buf_memory_new(char *data, size_t size)
 
 static inline vf_buf* vf_resizable_buf_new()
 {
-    const size_t size = 512;
+    const size_t size = 4096;
     vf_buf *buf = (vf_buf*)malloc(sizeof(vf_buf));
     vf_buf b = {
         .data = (char*)malloc(size),
