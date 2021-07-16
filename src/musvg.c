@@ -2611,7 +2611,15 @@ void musvg_parser_destroy(musvg_parser *p)
 
 int musvg_parse_svg_xml(musvg_parser* p, musvg_buf *buf)
 {
-    return musvg_parse_xml(buf->data, musvg_start_element, musvg_end_element, musvg_content, p);
+    /* copy the source buffer due to xml parse modifying the
+     * buffer to allow in-place zero-termination of attributes.
+     * also make it look like we read from the source buffer. */
+    musvg_buf *tmp = vf_buf_new(buf->write_marker);
+    vf_buf_write_bytes(tmp, buf->data, buf->write_marker);
+    int ret = musvg_parse_xml(tmp->data, musvg_start_element, musvg_end_element, musvg_content, p);
+    buf->read_marker = buf->write_marker;
+    vf_buf_destroy(tmp);
+    return ret;
 }
 
 int musvg_parse_binary_vf(musvg_parser* p, musvg_buf *buf)
