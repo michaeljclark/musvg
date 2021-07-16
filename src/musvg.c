@@ -1681,7 +1681,7 @@ static void musvg_parse_style(musvg_parser* p, musvg_node* node, const char* str
 
 static int musvg_stack_top(musvg_parser *p)
 {
-    if (p->node_depth == 0) return -1;
+    if (p->node_depth == 0) return musvg_node_sentinel;
     else return p->node_stack[p->node_depth - 1];
 }
 
@@ -1711,24 +1711,16 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
     node->type = type;
     node->next = musvg_node_sentinel;
     node->parent = musvg_stack_top(p);
-    node->attr_offset = -1; /* uninitialized */
     return node;
 }
 
 // SVG attribute storage
 
-static void musvg_attr_bitmap_set(musvg_node* node, uint attr_num)
-{
-    node->bitmap |= (1ull << attr_num);
-}
-
 static inline int node_find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
 {
-    if (node->attr_offset == -1) return -1;
-
     /* search attribute list backwards as a temporal affinity optimization */
     for (int i = node->attr_count - 1; i >= 0; i--) {
-        musvg_offset *offset = offsets_get(p,node->attr_offset + i);
+        musvg_offset *offset = offsets_get(p, node->attr_offset + i);
         if (offset->attr_type == attr) return node->attr_offset + i;
     }
 
@@ -1743,11 +1735,11 @@ static inline musvg_offset alloc_attr(musvg_parser *p, musvg_node *node, musvg_a
     musvg_offset o = { attr, storage_alloc(p, size, align) };
 
     uint idx = offsets_add(p,&o);
-    if (node->attr_offset == -1) {
-        assert(++node->attr_count == 1);
+    if (node->attr_count == 0) {
+        node->attr_count++;
         node->attr_offset = idx;
     } else {
-        assert(++node->attr_count > 1);
+        node->attr_count++;
         assert(node->attr_offset + node->attr_count - 1 == idx);
     }
 
@@ -2382,7 +2374,6 @@ static int musvg_parse_attr(musvg_parser* p, musvg_node* node, const char* name,
                 const musvg_typeinfo_attr *ti = musvg_type_info_attr + i;
                 musvg_attr_str_fn fn = musvg_text_parsers[ti->type];
                 debugf("musvg_parse_attr: %s := %s\n", name, value);
-                musvg_attr_bitmap_set(node, i);
                 return fn(p, value, node, i);
             }
         }
@@ -2392,22 +2383,14 @@ static int musvg_parse_attr(musvg_parser* p, musvg_node* node, const char* name,
 
 // emiters
 
-static int next_attr(ullong *bitmap)
-{
-    ullong bit = *bitmap & -(*bitmap);
-    *bitmap = ~bit & *bitmap;
-    return ctz(bit);
-}
-
 void musvg_emit_text_begin(musvg_parser *p, musvg_buf *buf, musvg_node *node, uint depth, uint close)
 {
     for (int d = 0; d < depth; d++) vf_buf_write_string(buf, "\t");
     vf_buf_write_format(buf, "node %s {\n",
         musvg_element_names[node->type]);
-
-    ullong bitmap = node->bitmap;
-    while (bitmap) {
-        int attr = next_attr(&bitmap);
+    for (int i = 0; i < node->attr_count; i++) {
+        musvg_offset *offset = offsets_get(p, node->attr_offset + i);
+        int attr = offset->attr_type;
         const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
         musvg_attr_buf_fn fn = musvg_text_emitters[ti->type];
         for (int d = 0; d < depth + 1; d++) vf_buf_write_string(buf, "\t");
@@ -2428,9 +2411,9 @@ void musvg_emit_xml_begin(musvg_parser *p, musvg_buf *buf, musvg_node *node, uin
     for (int d = 0; d < depth; d++) vf_buf_write_string(buf, "\t");
     vf_buf_write_i8(buf, '<');
     vf_buf_write_string(buf, musvg_element_names[node->type]);
-    ullong bitmap = node->bitmap;
-    while (bitmap) {
-        int attr = next_attr(&bitmap);
+    for (int i = 0; i < node->attr_count; i++) {
+        musvg_offset *offset = offsets_get(p, node->attr_offset + i);
+        int attr = offset->attr_type;
         const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
         musvg_attr_buf_fn fn = musvg_text_emitters[ti->type];
         vf_buf_write_i8(buf, ' ');
@@ -2453,9 +2436,9 @@ void musvg_emit_xml_end(musvg_parser *p, musvg_buf *buf, musvg_node *node, uint 
 void musvg_emit_binary_begin(musvg_parser *p, musvg_buf *buf, musvg_node *node, uint depth, uint close)
 {
     vf_buf_write_i8(buf, node->type);
-    ullong bitmap = node->bitmap;
-    while (bitmap) {
-        int attr = next_attr(&bitmap);
+    for (int i = 0; i < node->attr_count; i++) {
+        musvg_offset *offset = offsets_get(p, node->attr_offset + i);
+        int attr = offset->attr_type;
         const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
         musvg_attr_buf_fn fn = musvg_binary_emitters[ti->type];
         vf_buf_write_i8(buf, attr);
@@ -2559,7 +2542,6 @@ int musvg_parse_binary(musvg_parser *p, musvg_buf *buf)
             attr = attr % (musvg_attr_LIMIT + 1);
             if (attr == musvg_attr_none) break;
 
-            musvg_attr_bitmap_set(node, attr);
             const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
             musvg_attr_buf_fn read_fn = musvg_binary_parsers[ti->type];
             int ret = read_fn(p, buf, node, attr);
