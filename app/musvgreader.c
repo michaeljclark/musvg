@@ -21,9 +21,9 @@ int main(int argc, char **argv)
 
     int i = 1;
     while (i < argc) {
-        if (check_opt(argv[i],"-f","--input-file")   && i + 1 < argc) {
+        if (check_opt(argv[i],"-if","--input-file")   && i + 1 < argc) {
             input_filename = argv[++i];
-        } else if (check_opt(argv[i],"-f","--output-file")   && i + 1 < argc) {
+        } else if (check_opt(argv[i],"-of","--output-file")   && i + 1 < argc) {
             output_filename = argv[++i];
         } else if (check_opt(argv[i],"-i","--input-format") && i + 1 < argc) {
             input_format = musvg_parse_format(argv[++i]);
