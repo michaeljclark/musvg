@@ -82,6 +82,11 @@ static size_t array_buffer_size(array_buffer *sb, size_t stride)
     return sb->count * stride;
 }
 
+static size_t array_buffer_capacity(array_buffer *sb, size_t stride)
+{
+    return sb->capacity * stride;
+}
+
 static void* array_buffer_get(array_buffer *sb, size_t stride, size_t idx)
 {
     return sb->data + idx * stride;
@@ -146,6 +151,11 @@ static size_t storage_buffer_size(storage_buffer *sb)
     return sb->offset;
 }
 
+static size_t storage_buffer_capacity(storage_buffer *sb)
+{
+    return sb->capacity;
+}
+
 static void* storage_buffer_get(storage_buffer *sb, size_t idx)
 {
     return sb->data + idx;
@@ -177,6 +187,7 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define points_count(p) array_buffer_count(&p->points)
 #define points_data(p) array_buffer_data(&p->points)
 #define points_size(p) array_buffer_size(&p->points,sizeof(float))
+#define points_capacity(p) array_buffer_capacity(&p->points,sizeof(float))
 #define points_get(p,idx) ((float*)array_buffer_get(&p->points,sizeof(float),idx))
 #define points_resize(p) array_buffer_resize(&p->points,sizeof(float))
 #define points_add(p,ptr) array_buffer_add(&p->points,sizeof(float),ptr)
@@ -186,6 +197,7 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define path_ops_count(p) array_buffer_count(&p->path_ops)
 #define path_ops_data(p) array_buffer_data(&p->path_ops)
 #define path_ops_size(p) array_buffer_size(&p->path_ops,sizeof(musvg_path_op))
+#define path_ops_capacity(p) array_buffer_capacity(&p->path_ops,sizeof(musvg_path_op))
 #define path_ops_get(p,idx) ((musvg_path_op*)array_buffer_get(&p->path_ops,sizeof(musvg_path_op),idx))
 #define path_ops_resize(p) array_buffer_resize(&p->path_ops,sizeof(musvg_path_op))
 #define path_ops_add(p,ptr) array_buffer_add(&p->path_ops,sizeof(musvg_path_op),ptr)
@@ -195,6 +207,7 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define brushes_count(p) array_buffer_count(&p->brushes)
 #define brushes_data(p) array_buffer_data(&p->brushes)
 #define brushes_size(p) array_buffer_size(&p->brushes,sizeof(musvg_brush))
+#define brushes_capacity(p) array_buffer_capacity(&p->brushes,sizeof(musvg_brush))
 #define brushes_get(p,idx) ((musvg_brush*)array_buffer_get(&p->brushes,sizeof(musvg_brush),idx))
 #define brushes_resize(p) array_buffer_resize(&p->brushes,sizeof(musvg_brushes))
 #define brushes_add(p,ptr) array_buffer_add(&p->brushes,sizeof(musvg_brush),ptr)
@@ -204,6 +217,7 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define nodes_count(p) array_buffer_count(&p->nodes)
 #define nodes_data(p) array_buffer_data(&p->nodes)
 #define nodes_size(p) array_buffer_size(&p->nodes,sizeof(musvg_node))
+#define nodes_capacity(p) array_buffer_capacity(&p->nodes,sizeof(musvg_node))
 #define nodes_get(p,idx) ((musvg_node*)array_buffer_get(&p->nodes,sizeof(musvg_node),idx))
 #define nodes_resize(p) array_buffer_resize(&p->nodes,sizeof(musvg_node))
 #define nodes_alloc(p) array_buffer_alloc(&p->nodes,sizeof(musvg_node))
@@ -213,6 +227,7 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define offsets_count(p) array_buffer_count(&p->offsets)
 #define offsets_data(p) array_buffer_data(&p->offsets)
 #define offsets_size(p) array_buffer_size(&p->offsets,sizeof(musvg_offset))
+#define offsets_capacity(p) array_buffer_capacity(&p->offsets,sizeof(musvg_offset))
 #define offsets_get(p,idx) ((musvg_offset*)array_buffer_get(&p->offsets,sizeof(musvg_offset),idx))
 #define offsets_resize(p) array_buffer_resize(&p->offsets,sizeof(musvg_offset))
 #define offsets_add(p,ptr) array_buffer_add(&p->offsets,sizeof(musvg_offset),ptr)
@@ -221,6 +236,7 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define storage_init(p) storage_buffer_init(&p->storage,1024)
 #define storage_data(p) storage_buffer_data(&p->storage)
 #define storage_size(p) storage_buffer_size(&p->storage)
+#define storage_capacity(p) storage_buffer_capacity(&p->storage)
 #define storage_get(p,idx) ((char*)storage_buffer_get(&p->storage,idx))
 #define storage_resize(p,size) storage_buffer_resize(&p->storage,size)
 #define storage_alloc(p,size,align) storage_buffer_alloc(&p->storage,size,align)
@@ -232,8 +248,6 @@ struct musvg_parser
 {
     array_buffer points;
     array_buffer path_ops;
-    array_buffer gradient_stops;
-    array_buffer gradients;
     array_buffer brushes;
     array_buffer nodes;
     array_buffer offsets;
@@ -2554,6 +2568,53 @@ int musvg_parse_binary(musvg_buf *buf, musvg_parser *p)
     }
 
     return 0;
+}
+
+static void print_stats_titles()
+{
+    printf("%-10s %10s %10s %10s %10s %10s\n",
+        "name", "size", "count", "capacity", "used(B)", "alloc(B)");
+}
+static void print_stats_lines()
+{
+    printf("%-10s %10s %10s %10s %10s %10s\n",
+        "----------", "----------", "----------", "----------", "----------", "----------");
+}
+
+static void print_array_stats(array_buffer *ab, size_t stride, const char *name)
+{
+    printf("%-10s %10zu %10zu %10zu %10zu %10zu\n",
+        name, stride, ab->count, ab->capacity, ab->count * stride, ab->capacity * stride);
+}
+
+static void print_storage_stats(storage_buffer *sb, const char *name)
+{
+    printf("%-10s %10s %10s %10s %10zu %10zu\n",
+        name, "", "", "", sb->offset, sb->capacity);
+}
+
+static void print_summary_totals(musvg_parser *p)
+{
+    size_t capacity = nodes_capacity(p) + points_capacity(p) +
+        path_ops_capacity(p) + offsets_capacity(p) + storage_capacity(p);
+    size_t size = nodes_size(p) + points_size(p) + path_ops_size(p) +
+        offsets_size(p) + storage_size(p);
+    printf("%-10s %10s %10s %10s %10zu %10zu\n",
+        "totals", "", "", "", size, capacity);
+}
+
+void musvg_parser_stats(musvg_parser* p)
+{
+    print_stats_titles();
+    print_stats_lines();
+    print_array_stats(&p->nodes, sizeof(musvg_node), "nodes");
+    print_array_stats(&p->points, sizeof(float), "points");
+    print_array_stats(&p->path_ops, sizeof(musvg_path_op), "path_ops");
+    print_array_stats(&p->offsets, sizeof(musvg_offset), "attr_map");
+    //print_array_stats(&p->brushes, sizeof(musvg_brush), "brushes");
+    print_storage_stats(&p->storage, "storage");
+    print_stats_lines();
+    print_summary_totals(p);
 }
 
 void musvg_parser_destroy(musvg_parser *p)

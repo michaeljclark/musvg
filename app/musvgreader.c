@@ -17,7 +17,7 @@ int main(int argc, char **argv)
     const char* output_filename = NULL;
     musvg_format_t input_format = musvg_format_none;
     musvg_format_t output_format = musvg_format_none;
-    int help_exit = 0;
+    int help_exit = 0, print_stats = 0;
 
     int i = 1;
     while (i < argc) {
@@ -31,6 +31,8 @@ int main(int argc, char **argv)
             output_format = musvg_parse_format(argv[++i]);
         } else if (check_opt(argv[i],"-d","--debug")) {
             vf_set_debug(1);
+        } else if (check_opt(argv[i],"-s","--stats")) {
+            print_stats = 1;
         } else if (check_opt(argv[i],"-h","--help")) {
             help_exit = 1;
         } else {
@@ -74,6 +76,9 @@ int main(int argc, char **argv)
     p = musvg_parser_create();
     musvg_parse_file(p, input_format, input_filename);
     musvg_emit_file(p, output_format, output_filename);
+    if (print_stats) {
+        musvg_parser_stats(p);
+    }
     musvg_parser_destroy(p);
 
     return 0;

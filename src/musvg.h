@@ -467,6 +467,7 @@ typedef struct vf_buf musvg_buf;
 
 musvg_parser* musvg_parser_create();
 void musvg_parser_destroy(musvg_parser* p);
+void musvg_parser_stats(musvg_parser* p);
 
 int musvg_emit_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf);
 int musvg_emit_file(musvg_parser* p, musvg_format_t format, const char *filename);
