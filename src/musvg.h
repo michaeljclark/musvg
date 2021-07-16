@@ -422,10 +422,9 @@ struct musvg_node
     uint type;
     int next;
     int parent;
-    ullong bitmap;
+    ullong bitmap; // can eliminate?
     uint attr_offset;
     uint attr_count;
-    musvg_parser *p;
 };
 
 // SVG named color
