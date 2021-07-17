@@ -414,7 +414,7 @@ enum { musvg_node_sentinel = -1 };
 struct musvg_offset
 {
     ullong attr_type : 8;
-    ullong attr_offset : 56;
+    ullong attr_storage : 56;
 };
 
 struct musvg_node

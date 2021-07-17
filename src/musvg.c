@@ -1762,7 +1762,7 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
     } else {
         o = *offsets_get(p, attr_idx);
     }
-    return (musvg_small*)storage_get(p, o.attr_offset);
+    return (musvg_small*)storage_get(p, o.attr_storage);
 }
 
 static inline musvg_small parse_enum(musvg_attr_t attr, const char *s)
