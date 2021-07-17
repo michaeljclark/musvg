@@ -2085,6 +2085,38 @@ int vf_f32_write_byval(vf_buf *buf, const float value)
     return 0;
 }
 
+int vf_f64_read_vec(vf_buf *buf, double *value, size_t count)
+{
+    for (size_t i = 0; i < count; i++) {
+        if (vf_f64_read(buf, value + i) < 0) return -1;
+    }
+    return 0;
+}
+
+int vf_f64_write_vec(vf_buf *buf, const double *value, size_t count)
+{
+    for (size_t i = 0; i < count; i++) {
+        if (vf_f64_write(buf, value + i) < 0) return -1;
+    }
+    return 0;
+}
+
+int vf_f32_read_vec(vf_buf *buf, float *value, size_t count)
+{
+    for (size_t i = 0; i < count; i++) {
+        if (vf_f32_read(buf, value + i) < 0) return -1;
+    }
+    return 0;
+}
+
+int vf_f32_write_vec(vf_buf *buf, const float *value, size_t count)
+{
+    for (size_t i = 0; i < count; i++) {
+        if (vf_f32_write(buf, value + i) < 0) return -1;
+    }
+    return 0;
+}
+
 /*
  * IEEE 754
  */
@@ -2122,6 +2154,22 @@ int ieee754_f64_write_byval(vf_buf *buf, const double value)
     return 0;
 }
 
+int ieee754_f64_read_vec(vf_buf *buf, double *value, size_t count)
+{
+    if (vf_buf_read_vec_i64(buf, (int64_t*)value, count) != sizeof(f32) * count) {
+        return -1;
+    }
+    return 0;
+}
+
+int ieee754_f64_write_vec(vf_buf *buf, const double *value, size_t count)
+{
+    if (vf_buf_write_vec_i64(buf, (const int64_t*)value, count) != sizeof(f32) * count) {
+        return -1;
+    }
+    return 0;
+}
+
 int ieee754_f32_read(vf_buf *buf, float *value)
 {
     if (vf_buf_read_i32(buf, (int32_t*)value) != sizeof(f32)) {
@@ -2150,6 +2198,22 @@ struct f32_result ieee754_f32_read_byval(vf_buf *buf)
 int ieee754_f32_write_byval(vf_buf *buf, const float value)
 {
     if (vf_buf_write_i32(buf, (int32_t)f32_to_bits(value)) != sizeof(f32)) {
+        return -1;
+    }
+    return 0;
+}
+
+int ieee754_f32_read_vec(vf_buf *buf, float *value, size_t count)
+{
+    if (vf_buf_read_vec_i32(buf, (int32_t*)value, count) != sizeof(f32) * count) {
+        return -1;
+    }
+    return 0;
+}
+
+int ieee754_f32_write_vec(vf_buf *buf, const float *value, size_t count)
+{
+    if (vf_buf_write_vec_i32(buf, (const int32_t*)value, count) != sizeof(f32) * count) {
         return -1;
     }
     return 0;

@@ -101,20 +101,28 @@ static void* vf_buf_get_userdata(vf_buf *buf);
 static void vf_buf_set_userdata(vf_buf *buf, void *userdata);
 static void vf_buf_destroy(vf_buf* buf);
 
-static size_t vf_buf_write_i8(vf_buf* buf, int8_t num);
-static size_t vf_buf_write_i16(vf_buf* buf, int16_t num);
-static size_t vf_buf_write_i32(vf_buf* buf, int32_t num);
-static size_t vf_buf_write_i64(vf_buf* buf, int64_t num);
+static size_t vf_buf_write_i8(vf_buf* buf, int8_t val);
+static size_t vf_buf_write_i16(vf_buf* buf, int16_t val);
+static size_t vf_buf_write_i32(vf_buf* buf, int32_t val);
+static size_t vf_buf_write_i64(vf_buf* buf, int64_t val);
 static size_t vf_buf_write_bytes(vf_buf* buf, const char *s, size_t len);
 static size_t vf_buf_write_string(vf_buf* buf, const char *s);
 static size_t vf_buf_write_bytes_unchecked(vf_buf* buf, const char *s, size_t len);
 
-static size_t vf_buf_read_i8(vf_buf* buf, int8_t *num);
-static size_t vf_buf_read_i16(vf_buf* buf, int16_t *num);
-static size_t vf_buf_read_i32(vf_buf* buf, int32_t *num);
-static size_t vf_buf_read_i64(vf_buf* buf, int64_t *num);
+static size_t vf_buf_write_vec_i16(vf_buf* buf, const int16_t *val, size_t count);
+static size_t vf_buf_write_vec_i32(vf_buf* buf, const int32_t *val, size_t count);
+static size_t vf_buf_write_vec_i64(vf_buf* buf, const int64_t *val, size_t count);
+
+static size_t vf_buf_read_i8(vf_buf* buf, int8_t *val);
+static size_t vf_buf_read_i16(vf_buf* buf, int16_t *val);
+static size_t vf_buf_read_i32(vf_buf* buf, int32_t *val);
+static size_t vf_buf_read_i64(vf_buf* buf, int64_t *val);
 static size_t vf_buf_read_bytes(vf_buf* buf, char *s, size_t len);
 static size_t vf_buf_read_bytes_unchecked(vf_buf* buf, char *s, size_t len);
+
+static size_t vf_buf_read_vec_i16(vf_buf* buf, int16_t *val, size_t count);
+static size_t vf_buf_read_vec_i32(vf_buf* buf, int32_t *val, size_t count);
+static size_t vf_buf_read_vec_i64(vf_buf* buf, int64_t *val, size_t count);
 
 /*
  * buffer inline functions
@@ -361,18 +369,26 @@ static inline void vf_buf_destroy(vf_buf* buf)
 #endif
 #endif
 
-#if defined (_MSC_VER)
 #define USE_CRT_MEMCPY 0
+#if USE_CRT_MEMCPY
+#define vf_memcpy memcpy
 #else
-#define USE_CRT_MEMCPY 1
+static inline void vf_memcpy(void *dst, const void *src, size_t l)
+{
+    char *d = (char*)dst;
+    const char *s = (const char*)src;
+    while (l-- > 0) *d++ = *s++;
+}
 #endif
 
-#define CREFL_FN(Y,X) vf_ ## Y ## _ ## X
+#define FN(Y,X) vf_ ## Y ## _ ## X
 
-#if USE_UNALIGNED_ACCESSES && !USE_CRT_MEMCPY
+#if USE_UNALIGNED_ACCESSES
+
+/* use word accesses for all copies between buffers and user memory */
 
 #define CREFL_BUF_WRITE_IMPL(suffix,T,swap)                                    \
-static inline size_t CREFL_FN(buf_write,suffix)(vf_buf *buf, T val)            \
+static inline size_t FN(buf_write,suffix)(vf_buf *buf, T val)                  \
 {                                                                              \
     if (buf->write_check(buf, sizeof(T))) return 0;                            \
     T t = swap(val);                                                           \
@@ -380,16 +396,25 @@ static inline size_t CREFL_FN(buf_write,suffix)(vf_buf *buf, T val)            \
     buf->write_marker += sizeof(T);                                            \
     return sizeof(T);                                                          \
 }                                                                              \
-static inline size_t CREFL_FN(buf_write_unchecked,suffix)(vf_buf *buf, T val)  \
+static inline size_t FN(buf_write_unchecked,suffix)(vf_buf *buf, T val)        \
 {                                                                              \
     T t = swap(val);                                                           \
     *(T*)(buf->data + buf->write_marker) = t;                                  \
     buf->write_marker += sizeof(T);                                            \
     return sizeof(T);                                                          \
+}                                                                              \
+static inline size_t FN(buf_write_vec,suffix)(vf_buf *buf, const T *val, size_t count)\
+{                                                                              \
+    if (buf->write_check(buf, sizeof(T) * count)) return 0;                    \
+    for (size_t i = 0; i < count; i++) {                                       \
+        ((T*)(buf->data + buf->write_marker))[i] = swap(val[i]);               \
+    }                                                                          \
+    buf->write_marker += sizeof(T) * count;                                    \
+    return sizeof(T) * count;                                                  \
 }
 
 #define CREFL_BUF_READ_IMPL(suffix,T,swap)                                     \
-static inline size_t CREFL_FN(buf_read,suffix)(vf_buf *buf, T* val)            \
+static inline size_t FN(buf_read,suffix)(vf_buf *buf, T* val)                  \
 {                                                                              \
     if (buf->read_check(buf, sizeof(T))) return 0;                             \
     T t = *(T*)(buf->data + buf->read_marker);                                 \
@@ -397,50 +422,82 @@ static inline size_t CREFL_FN(buf_read,suffix)(vf_buf *buf, T* val)            \
     buf->read_marker += sizeof(T);                                             \
     return sizeof(T);                                                          \
 }                                                                              \
-static inline size_t CREFL_FN(buf_read_unchecked,suffix)(vf_buf *buf, T* val)  \
+static inline size_t FN(buf_read_unchecked,suffix)(vf_buf *buf, T* val)        \
 {                                                                              \
     T t = *(T*)(buf->data + buf->read_marker);                                 \
     *val = swap(t);                                                            \
     buf->read_marker += sizeof(T);                                             \
     return sizeof(T);                                                          \
+}                                                                              \
+static inline size_t FN(buf_read_vec,suffix)(vf_buf *buf, T* val, size_t count)\
+{                                                                              \
+    if (buf->read_check(buf, sizeof(T) * count)) return 0;                     \
+    for (size_t i = 0; i < count; i++) {                                       \
+        val[i] = swap(((T*)(buf->data + buf->read_marker))[i]);                \
+    }                                                                          \
+    buf->read_marker += sizeof(T) * count;                                     \
+    return sizeof(T) * count;                                                  \
 }
 
 #else
 
+/* use vf_memcpy for small copies and the host memcpy for vector copies */
+
 #define CREFL_BUF_WRITE_IMPL(suffix,T,swap)                                    \
-static inline size_t CREFL_FN(buf_write,suffix)(vf_buf *buf, T val)            \
+static inline size_t FN(buf_write,suffix)(vf_buf *buf, T val)                  \
 {                                                                              \
     if (buf->write_check(buf, sizeof(T))) return 0;                            \
     T t = swap(val);                                                           \
-    memcpy(buf->data + buf->write_marker, &t, sizeof(T));                      \
+    vf_memcpy(buf->data + buf->write_marker, &t, sizeof(T));                   \
     buf->write_marker += sizeof(T);                                            \
     return sizeof(T);                                                          \
 }                                                                              \
-static inline size_t CREFL_FN(buf_write_unchecked,suffix)(vf_buf *buf, T val)  \
+static inline size_t FN(buf_write_unchecked,suffix)(vf_buf *buf, T val)        \
 {                                                                              \
     T t = swap(val);                                                           \
-    memcpy(buf->data + buf->write_marker, &t, sizeof(T));                      \
+    vf_memcpy(buf->data + buf->write_marker, &t, sizeof(T));                   \
     buf->write_marker += sizeof(T);                                            \
     return sizeof(T);                                                          \
+}                                                                              \
+static inline size_t FN(buf_write_vec,suffix)(vf_buf *buf, const T *val, size_t count)\
+{                                                                              \
+    if (buf->write_check(buf, sizeof(T) * count)) return 0;                    \
+    for (size_t i = 0; i < count; i++) {                                       \
+        T t = swap(val[i]);                                                    \
+        memcpy(buf->data + buf->write_marker + sizeof(T) * i, &t, sizeof(T));  \
+    }                                                                          \
+    buf->write_marker += sizeof(T) * count;                                    \
+    return sizeof(T) * count;                                                  \
 }
 
 #define CREFL_BUF_READ_IMPL(suffix,T,swap)                                     \
-static inline size_t CREFL_FN(buf_read,suffix)(vf_buf *buf, T* val)            \
+static inline size_t FN(buf_read,suffix)(vf_buf *buf, T* val)                  \
 {                                                                              \
     if (buf->read_check(buf, sizeof(T))) return 0;                             \
     T t;                                                                       \
-    memcpy(&t, buf->data + buf->read_marker, sizeof(T));                       \
+    vf_memcpy(&t, buf->data + buf->read_marker, sizeof(T));                    \
     *val = swap(t);                                                            \
     buf->read_marker += sizeof(T);                                             \
     return sizeof(T);                                                          \
 }                                                                              \
-static inline size_t CREFL_FN(buf_read_unchecked,suffix)(vf_buf *buf, T* val)  \
+static inline size_t FN(buf_read_unchecked,suffix)(vf_buf *buf, T* val)        \
 {                                                                              \
     T t;                                                                       \
-    memcpy(&t, buf->data + buf->read_marker, sizeof(T));                       \
+    vf_memcpy(&t, buf->data + buf->read_marker, sizeof(T));                    \
     *val = swap(t);                                                            \
     buf->read_marker += sizeof(T);                                             \
     return sizeof(T);                                                          \
+}                                                                              \
+static inline size_t FN(buf_read_vec,suffix)(vf_buf *buf, T* val, size_t count)\
+{                                                                              \
+    if (buf->read_check(buf, sizeof(T) * count)) return 0;                     \
+    for (size_t i = 0; i < count; i++) {                                       \
+        T t;                                                                   \
+        memcpy(&t, buf->data + buf->read_marker + sizeof(T) * i, sizeof(T));   \
+        val[i] = swap(t);                                                      \
+    }                                                                          \
+    buf->read_marker += sizeof(T) * count;                                     \
+    return sizeof(T) * count;                                                  \
 }
 
 #endif
@@ -452,6 +509,8 @@ CREFL_BUF_WRITE_IMPL(i64,int64_t,le64)
 CREFL_BUF_READ_IMPL(i16,int16_t,le16)
 CREFL_BUF_READ_IMPL(i32,int32_t,le32)
 CREFL_BUF_READ_IMPL(i64,int64_t,le64)
+
+#undef FN
 
 static inline size_t vf_buf_write_i8(vf_buf *buf, int8_t val)
 {
@@ -470,13 +529,7 @@ static inline size_t vf_buf_write_unchecked_i8(vf_buf *buf, int8_t val)
 static inline size_t vf_buf_write_bytes(vf_buf* buf, const char *src, size_t len)
 {
     if (buf->write_check(buf, len)) return 0;
-#if USE_CRT_MEMCPY
-    memcpy(&buf->data[buf->write_marker], src, len);
-#else
-    char *dst = &buf->data[buf->write_marker];
-    size_t l = len;
-    while (l-- > 0) *dst++ = *src++;
-#endif
+    vf_memcpy(&buf->data[buf->write_marker], src, len);
     buf->write_marker += len;
     return len;
 }
@@ -510,13 +563,7 @@ static size_t vf_buf_write_format(vf_buf* buf, const char* fmt, ...)
 
 static inline size_t vf_buf_write_bytes_unchecked(vf_buf* buf, const char *src, size_t len)
 {
-#if USE_CRT_MEMCPY
-    memcpy(&buf->data[buf->write_marker], src, len);
-#else
-    char *dst = &buf->data[buf->write_marker];
-    size_t l = len;
-    while (l-- > 0) *dst++ = *src++;
-#endif
+    vf_memcpy(&buf->data[buf->write_marker], src, len);
     buf->write_marker += len;
     return len;
 }
@@ -539,26 +586,14 @@ static inline size_t vf_buf_read_unchecked_i8(vf_buf *buf, int8_t* val)
 static inline size_t vf_buf_read_bytes(vf_buf* buf, char *dst, size_t len)
 {
     if (buf->read_check(buf, len)) return 0;
-#if USE_CRT_MEMCPY
-    memcpy(dst, &buf->data[buf->read_marker], len);
-#else
-    const char *src = &buf->data[buf->read_marker];
-    size_t l = len;
-    while (l-- > 0) *dst++ = *src++;
-#endif
+    vf_memcpy(dst, &buf->data[buf->read_marker], len);
     buf->read_marker += len;
     return len;
 }
 
 static inline size_t vf_buf_read_bytes_unchecked(vf_buf* buf, char *dst, size_t len)
 {
-#if USE_CRT_MEMCPY
-    memcpy(dst, &buf->data[buf->read_marker], len);
-#else
-    const char *src = &buf->data[buf->read_marker];
-    size_t l = len;
-    while (l-- > 0) *dst++ = *src++;
-#endif
+    vf_memcpy(dst, &buf->data[buf->read_marker], len);
     buf->read_marker += len;
     return len;
 }
@@ -687,20 +722,32 @@ int vf_f64_write(vf_buf *buf, const double *value);
 struct f64_result vf_f64_read_byval(vf_buf *buf);
 int vf_f64_write_byval(vf_buf *buf, const double value);
 
+int vf_f64_read_vec(vf_buf *buf, double *value, size_t count);
+int vf_f64_write_vec(vf_buf *buf, const double *value, size_t count);
+
 int vf_f32_read(vf_buf *buf, float *value);
 int vf_f32_write(vf_buf *buf, const float *value);
 struct f32_result vf_f32_read_byval(vf_buf *buf);
 int vf_f32_write_byval(vf_buf *buf, const float value);
+
+int vf_f32_read_vec(vf_buf *buf, float *value, size_t count);
+int vf_f32_write_vec(vf_buf *buf, const float *value, size_t count);
 
 int ieee754_f64_read(vf_buf *buf, float *value);
 int ieee754_f64_write(vf_buf *buf, const float *value);
 struct f64_result ieee754_f64_read_byval(vf_buf *buf);
 int ieee754_f64_write_byval(vf_buf *buf, const float value);
 
+int ieee754_f64_read_vec(vf_buf *buf, double *value, size_t count);
+int ieee754_f64_write_vec(vf_buf *buf, const double *value, size_t count);
+
 int ieee754_f32_read(vf_buf *buf, float *value);
 int ieee754_f32_write(vf_buf *buf, const float *value);
 struct f32_result ieee754_f32_read_byval(vf_buf *buf);
 int ieee754_f32_write_byval(vf_buf *buf, const float value);
+
+int ieee754_f32_read_vec(vf_buf *buf, float *value, size_t count);
+int ieee754_f32_write_vec(vf_buf *buf, const float *value, size_t count);
 
 int leb_u64_read(vf_buf *buf, u64 *value);
 int leb_u64_write(vf_buf *buf, const u64 *value);
