@@ -62,7 +62,7 @@ static bench_result bench_parse(llong count, bench_info *info)
     free(span.data);
 
     double t = (double)duration_cast<nanoseconds>(et - st).count();
-    return bench_result { info->name, count, t, (llong)span.size };
+    return bench_result { info->name, count, t, (llong)span.size * count };
 }
 
 static benchmark benchmarks[] = {
@@ -109,38 +109,41 @@ static const char* format_comma(llong count)
 
 static void print_header(const char *prefix)
 {
-    printf("%s%-24s %7s %7s %7s %7s\n",
+    printf("%s%-24s %7s %7s %7s %7s %9s\n",
         prefix,
         "benchmark",
         "count",
         "time(s)",
         "op(ms)",
-        "ops/s"
+        "ops/s",
+        "MiB/s"
     );
 }
 
 static void print_rules(const char *prefix)
 {
-    printf("%s%-24s %7s %7s %7s %7s\n",
+    printf("%s%-24s %7s %7s %7s %7s %9s\n",
         prefix,
         "------------------------",
         "-------",
         "-------",
         "-------",
-        "-------"
+        "-------",
+        "---------"
     );
 }
 
 static void print_result(const char *prefix, const char *name,
     llong count, double t, llong size)
 {
-    printf("%s%-24s %7s %7.3f %7.3f %7s\n",
+    printf("%s%-24s %7s %7.3f %7.3f %7s %9.3f\n",
         prefix,
         name,
         format_unit(count),
         t / 1e9,
         t / count / 1e6,
-        format_comma((llong)(count * (1e9 / t)))
+        format_comma((llong)(count * (1e9 / t))),
+        size * (1e9 / t) / (1024*1024)
     );
 }
 
