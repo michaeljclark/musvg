@@ -1655,6 +1655,7 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
     node->type = type;
     node->next = musvg_node_sentinel;
     node->parent = musvg_stack_top(p);
+    node->attr_offset = node->attr_count = 0;
     return node;
 }
 
