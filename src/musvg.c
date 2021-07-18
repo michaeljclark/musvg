@@ -1735,7 +1735,7 @@ int musvg_read_binary_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, musv
 {
     musvg_id *id = (musvg_id*)attr_pointer(p, node, attr);
     ullong id_name_len = 0;
-    assert(!vlu_u64_read(buf, &id_name_len));
+    assert(!leb_u64_read(buf, &id_name_len));
     assert(id_name_len < sizeof(id->name));
     assert(vf_buf_read_bytes(buf, id->name, id_name_len));
     return 0;
@@ -1811,13 +1811,13 @@ int musvg_read_binary_path(musvg_parser *p, musvg_buf *buf, musvg_node *node, mu
 {
     musvg_path_d *pd = (musvg_path_d*)attr_pointer(p, node, attr);
     ullong count = 0;
-    assert(!vlu_u64_read(buf, &count));
+    assert(!leb_u64_read(buf, &count));
     musvg_path_d ops = { path_ops_count(p), count };
     *pd = ops;
     for (uint j = 0; j < ops.op_count; j++) {
         ullong count = 0; musvg_small code = 0;
         assert(vf_buf_read_i8(buf, (int8_t*)&code));
-        assert(!vlu_u64_read(buf, &count));
+        assert(!leb_u64_read(buf, &count));
         musvg_path_op path_op = { code, points_count(p), count };
         path_ops_add(p, &path_op);
         float *points_arr = points_alloc(p, path_op.point_count);
@@ -1830,7 +1830,7 @@ int musvg_read_binary_points(musvg_parser *p, musvg_buf *buf, musvg_node *node, 
 {
     musvg_points *pp = (musvg_points*)attr_pointer(p, node, attr);
     ullong count = 0;
-    assert(!vlu_u64_read(buf, &count));
+    assert(!leb_u64_read(buf, &count));
     musvg_points points = { points_count(p), count };
     *pp = points;
     float *points_arr = points_alloc(p, points.point_count);
@@ -1851,7 +1851,7 @@ int musvg_write_binary_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, mus
 {
     const musvg_id id = *(musvg_id*)attr_pointer(p, node, attr);
     const ullong id_name_len = strlen(id.name);
-    assert(!vlu_u64_write(buf, &id_name_len));
+    assert(!leb_u64_write(buf, &id_name_len));
     assert(vf_buf_write_bytes(buf, id.name, id_name_len));
     return 0;
 }
@@ -1925,13 +1925,13 @@ int musvg_write_binary_path(musvg_parser *p, musvg_buf *buf, musvg_node *node, m
 {
     musvg_path_d ops = *(musvg_path_d*)attr_pointer(p, node, attr);
     ullong count = ops.op_count;
-    assert(!vlu_u64_write(buf, &count));
+    assert(!leb_u64_write(buf, &count));
     for (uint j = 0; j < ops.op_count; j++) {
         const  musvg_path_op *path_op = path_ops_get(p, ops.op_offset + j);
         musvg_small code = path_op->code;
         ullong count = path_op->point_count;
         assert(vf_buf_write_i8(buf, (int8_t)code));
-        assert(!vlu_u64_write(buf, &count));
+        assert(!leb_u64_write(buf, &count));
         const float *v = points_get(p, path_op->point_offset);
         assert(!p->f32_write_vec(buf, v, count));
     }
@@ -1943,7 +1943,7 @@ int musvg_write_binary_points(musvg_parser *p, musvg_buf *buf, musvg_node *node,
     musvg_points points = *(musvg_points*)attr_pointer(p, node, attr);
     const float *v = points_get(p, points.point_offset);
     ullong count = points.point_count;
-    assert(!vlu_u64_write(buf, &count));
+    assert(!leb_u64_write(buf, &count));
     assert(!p->f32_write_vec(buf, v, count));
     return 0;
 }
