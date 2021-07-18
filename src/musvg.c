@@ -258,6 +258,11 @@ struct musvg_parser
 
     uint node_stack[musvg_max_depth];
     uint node_depth;
+
+    int (*f32_read)(vf_buf *buf, float *value);
+    int (*f32_write)(vf_buf *buf, const float value);
+    int (*f32_read_vec)(vf_buf *buf, float *value, size_t n);
+    int (*f32_write_vec)(vf_buf *buf, const float *value, size_t n);
 };
 
 // parser common
@@ -1839,9 +1844,6 @@ musvg_parser* musvg_parser_create()
 
 // binary readers
 
-int (*f32_read)(vf_buf *buf, float *value);
-int (*f32_write_byval)(vf_buf *buf, const float value);
-
 int musvg_read_binary_enum(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     musvg_small *enum_value = (musvg_small*)attr_pointer(p, node, attr);
@@ -1863,7 +1865,7 @@ int musvg_read_binary_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, musv
 int musvg_read_binary_length(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     musvg_length *length = (musvg_length*)attr_pointer(p, node, attr);
-    assert(!f32_read(buf, &length->value));
+    assert(!p->f32_read(buf, &length->value));
     assert(vf_buf_read_i8(buf, &length->units));
     return 0;
 }
@@ -1884,14 +1886,10 @@ int musvg_read_binary_transform(musvg_parser *p, musvg_buf *buf, musvg_node *nod
     assert(vf_buf_read_i8(buf, (int8_t*)&xf->type));
     if (xf->type == musvg_transform_matrix) {
         xf->nargs = 0;
-        for (size_t i = 0; i < 6; i++) {
-            assert(!f32_read(buf, &xf->xform[i]));
-        }
+        assert(!p->f32_read_vec(buf, xf->xform, 6));
     } else {
         assert(vf_buf_read_i8(buf, (int8_t*)&xf->nargs));
-        for (size_t i = 0; i < xf->nargs; i++) {
-            assert(!f32_read(buf, &xf->args[i]));
-        }
+        assert(!p->f32_read_vec(buf, xf->args, xf->nargs));
     }
     return 0;
 }
@@ -1900,26 +1898,24 @@ int musvg_read_binary_dasharray(musvg_parser *p, musvg_buf *buf, musvg_node *nod
 {
     musvg_dasharray *da = (musvg_dasharray*)attr_pointer(p, node, attr);
     assert(vf_buf_read_i8(buf, (int8_t*)&da->count));
-    for (size_t i = 0; i < da->count; i++) {
-        assert(!f32_read(buf, &da->dashes[i]));
-    }
+    assert(!p->f32_read_vec(buf, da->dashes, da->count));
     return 0;
 }
 
 int musvg_read_binary_float(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     float *value = (float*)attr_pointer(p, node, attr);
-    assert(!f32_read(buf, value));
+    assert(!p->f32_read(buf, value));
     return 0;
 }
 
 int musvg_read_binary_viewbox(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     musvg_viewbox *vb = (musvg_viewbox*)attr_pointer(p, node, attr);
-    assert(!f32_read(buf, &vb->x));
-    assert(!f32_read(buf, &vb->y));
-    assert(!f32_read(buf, &vb->width));
-    assert(!f32_read(buf, &vb->height));
+    assert(!p->f32_read(buf, &vb->x));
+    assert(!p->f32_read(buf, &vb->y));
+    assert(!p->f32_read(buf, &vb->width));
+    assert(!p->f32_read(buf, &vb->height));
     return 0;
 }
 
@@ -1946,9 +1942,7 @@ int musvg_read_binary_path(musvg_parser *p, musvg_buf *buf, musvg_node *node, mu
         musvg_path_op path_op = { code, points_count(p), count };
         path_ops_add(p, &path_op);
         float *points_arr = points_alloc(p, path_op.point_count);
-        for (uint k = 0; k < path_op.point_count; k++) {
-            assert(!f32_read(buf, points_arr + k));
-        }
+        assert(!p->f32_read_vec(buf, points_arr, path_op.point_count));
     }
     return 0;
 }
@@ -1961,9 +1955,7 @@ int musvg_read_binary_points(musvg_parser *p, musvg_buf *buf, musvg_node *node, 
     musvg_points points = { points_count(p), count };
     *pp = points;
     float *points_arr = points_alloc(p, points.point_count);
-    for (uint j = 0; j < points.point_count; j++) {
-        assert(!f32_read(buf, points_arr + j));
-    }
+    assert(!p->f32_read_vec(buf, points_arr, points.point_count));
     return 0;
 }
 
@@ -1988,7 +1980,7 @@ int musvg_write_binary_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, mus
 int musvg_write_binary_length(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     const musvg_length length = *(musvg_length*)attr_pointer(p, node, attr);
-    assert(!f32_write_byval(buf, length.value));
+    assert(!p->f32_write(buf, length.value));
     assert(vf_buf_write_i8(buf, length.units));
     return 0;
 }
@@ -2008,14 +2000,10 @@ int musvg_write_binary_transform(musvg_parser *p, musvg_buf *buf, musvg_node *no
     const musvg_transform xf = *(musvg_transform*)attr_pointer(p, node, attr);
     assert(vf_buf_write_i8(buf, (int8_t)xf.type));
     if (xf.type == musvg_transform_matrix) {
-        for (size_t i = 0; i < 6; i++) {
-            assert(!f32_write_byval(buf, xf.xform[i]));
-        }
+        assert(!p->f32_write_vec(buf, xf.xform, 6));
     } else {
         assert(vf_buf_write_i8(buf, (int8_t)xf.nargs));
-        for (size_t i = 0; i < xf.nargs; i++) {
-            assert(!f32_write_byval(buf, xf.args[i]));
-        }
+        assert(!p->f32_write_vec(buf, xf.args, xf.nargs));
     }
     return 0;
 }
@@ -2024,26 +2012,24 @@ int musvg_write_binary_dasharray(musvg_parser *p, musvg_buf *buf, musvg_node *no
 {
     const musvg_dasharray da = *(musvg_dasharray*)attr_pointer(p, node, attr);
     assert(vf_buf_write_i8(buf, (int8_t)da.count));
-    for (size_t i = 0; i < da.count; i++) {
-        assert(!f32_write_byval(buf, da.dashes[i]));
-    }
+    assert(!p->f32_write_vec(buf, da.dashes, da.count));
     return 0;
 }
 
 int musvg_write_binary_float(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     const float value = *(float*)attr_pointer(p, node, attr);
-    assert(!f32_write_byval(buf, value));
+    assert(!p->f32_write(buf, value));
     return 0;
 }
 
 int musvg_write_binary_viewbox(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     const musvg_viewbox vb = *(musvg_viewbox*)attr_pointer(p, node, attr);
-    assert(!f32_write_byval(buf, vb.x));
-    assert(!f32_write_byval(buf, vb.y));
-    assert(!f32_write_byval(buf, vb.width));
-    assert(!f32_write_byval(buf, vb.height));
+    assert(!p->f32_write(buf, vb.x));
+    assert(!p->f32_write(buf, vb.y));
+    assert(!p->f32_write(buf, vb.width));
+    assert(!p->f32_write(buf, vb.height));
     return 0;
 }
 
@@ -2068,9 +2054,7 @@ int musvg_write_binary_path(musvg_parser *p, musvg_buf *buf, musvg_node *node, m
         assert(vf_buf_write_i8(buf, (int8_t)code));
         assert(!vlu_u64_write(buf, &count));
         const float *v = points_get(p, path_op->point_offset);
-        for (uint k = 0; k < path_op->point_count; k++) {
-            assert(!f32_write_byval(buf, v[k]));
-        }
+        assert(!p->f32_write_vec(buf, v, count));
     }
     return 0;
 }
@@ -2081,9 +2065,7 @@ int musvg_write_binary_points(musvg_parser *p, musvg_buf *buf, musvg_node *node,
     const float *v = points_get(p, points.point_offset);
     ullong count = points.point_count;
     assert(!vlu_u64_write(buf, &count));
-    for (uint j = 0; j < points.point_count; j++) {
-        assert(!f32_write_byval(buf, v[j]));
-    }
+    assert(!p->f32_write_vec(buf, v, count));
     return 0;
 }
 
@@ -2492,13 +2474,15 @@ void musvg_emit_xml(musvg_parser* p, musvg_buf *buf)
 
 void musvg_emit_binary_vf(musvg_parser* p, musvg_buf *buf)
 {
-    f32_write_byval = vf_f32_write_byval; /* todo - thread safety */
+    p->f32_write = vf_f32_write_byval;
+    p->f32_write_vec = vf_f32_write_vec;
     musvg_emit(p, buf, musvg_emit_binary_begin, musvg_emit_binary_end);
 }
 
 void musvg_emit_binary_ieee(musvg_parser* p, musvg_buf *buf)
 {
-    f32_write_byval = ieee754_f32_write_byval; /* todo - thread safety */
+    p->f32_write = ieee754_f32_write_byval;
+    p->f32_write_vec = ieee754_f32_write_vec;
     musvg_emit(p, buf, musvg_emit_binary_begin, musvg_emit_binary_end);
 }
 
@@ -2624,13 +2608,15 @@ int musvg_parse_svg_xml(musvg_parser* p, musvg_buf *buf)
 
 int musvg_parse_binary_vf(musvg_parser* p, musvg_buf *buf)
 {
-    f32_read = vf_f32_read;
+    p->f32_read = vf_f32_read;
+    p->f32_read_vec = vf_f32_read_vec;
     return musvg_parse_binary(p, buf);
 }
 
 int  musvg_parse_binary_ieee(musvg_parser* p, musvg_buf *buf)
 {
-    f32_read = ieee754_f32_read;
+    p->f32_read = ieee754_f32_read;
+    p->f32_read_vec = ieee754_f32_read_vec;
     return musvg_parse_binary(p, buf);
 }
 
