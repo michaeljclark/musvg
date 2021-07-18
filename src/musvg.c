@@ -1721,19 +1721,21 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
 
 // SVG attribute storage
 
-static inline int node_find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
+static inline int find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
 {
     /* search attribute list backwards as a temporal affinity optimization */
     for (int i = node->attr_count - 1; i >= 0; i--) {
         musvg_offset *offset = offsets_get(p, node->attr_offset + i);
-        if (offset->attr_type == attr) return node->attr_offset + i;
+        if (offset->attr_type == attr) return offset->attr_storage;
     }
 
-    return -1;
+    /* zero offset is reserved and means not found */
+    return 0;
 }
 
-static inline musvg_offset alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
+static inline ullong alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
 {
+    /* allocate aligned storage space */
     size_t type = musvg_type_info_attr[attr].type;
     size_t size = musvg_type_storage[type].size;
     size_t align = musvg_type_storage[type].align;
@@ -1741,14 +1743,16 @@ static inline musvg_offset alloc_attr(musvg_parser *p, musvg_node *node, musvg_a
 
     uint idx = offsets_add(p,&o);
     if (node->attr_count == 0) {
+        /* write storage offset to attribute in offsets table */
         node->attr_count++;
         node->attr_offset = idx;
     } else {
+        /* check storage offset is adjacent to the last attribute */
         node->attr_count++;
         assert(node->attr_offset + node->attr_count - 1 == idx);
     }
 
-    return o;
+    return o.attr_storage;
 }
 
 static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
@@ -1760,14 +1764,11 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
      * alloc attr assumes constraint that attributes are written contiguously
      * such as the case when parsing xml or binary, but not random writes.
      */
-    musvg_offset o;
-    int attr_idx = node_find_attr(p, node, attr);
-    if (attr_idx == -1) {
-        o = alloc_attr(p, node, attr);
-    } else {
-        o = *offsets_get(p, attr_idx);
+    ullong attr_storage = find_attr(p, node, attr);
+    if (attr_storage == 0) {
+        attr_storage = alloc_attr(p, node, attr);
     }
-    return (musvg_small*)storage_get(p, o.attr_storage);
+    return (musvg_small*)storage_get(p, attr_storage);
 }
 
 static inline musvg_small parse_enum(musvg_attr_t attr, const char *s)
