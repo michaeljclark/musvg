@@ -1621,67 +1621,6 @@ static musvg_path_d musvg_parse_path_ops(musvg_parser *p, const char *s)
     return ops;
 }
 
-// SVG attribute parsing
-
-static void musvg_parse_style(musvg_parser* p, musvg_node* node, const char* str);
-static int musvg_parse_attr(musvg_parser* p, musvg_node* node, const char* name, const char* value);
-
-static int musvg_parse_name_value(musvg_parser* p, musvg_node* node, const char* start, const char* end)
-{
-    const char* str;
-    const char* val;
-    char name[128];
-    char value[384];
-    int n;
-
-    str = start;
-    while (str < end && *str != ':') ++str;
-
-    val = str;
-
-    // Right Trim
-    while (str > start &&  (*str == ':' || musvg_isspace(*str))) --str;
-    ++str;
-
-    n = (int)(str - start);
-    if (n >= sizeof(name)) n = sizeof(name) - 1;
-    if (n) memcpy(name, start, n);
-    name[n] = 0;
-
-    while (val < end && (*val == ':' || musvg_isspace(*val))) ++val;
-
-    n = (int)(end - val);
-    if (n >= sizeof(value)) n = sizeof(value) - 1;
-    if (n) memcpy(value, val, n);
-    value[n] = 0;
-
-    return musvg_parse_attr(p, node, name, value);
-}
-
-static void musvg_parse_style(musvg_parser* p, musvg_node* node, const char* str)
-{
-    debugf("musvg_parse_style: [%s]\n", str);
-
-    const char* start;
-    const char* end;
-
-    while (*str)
-    {
-        // Left Trim
-        while(*str && musvg_isspace(*str)) ++str;
-        start = str;
-        while(*str && *str != ';') ++str;
-        end = str;
-
-        // Right Trim
-        while (end > start &&  (*end == ';' || musvg_isspace(*end))) --end;
-        ++end;
-
-        musvg_parse_name_value(p, node, start, end);
-        if (*str) ++str;
-    }
-}
-
 // SVG node stack
 
 static int musvg_stack_top(musvg_parser *p)
@@ -1779,68 +1718,6 @@ static inline musvg_small parse_enum(musvg_attr_t attr, const char *s)
 static inline musvg_small enum_modulus(musvg_attr_t attr)
 {
     return musvg_type_info_enum[attr].limit + 1;
-}
-
-// SVG element callbacks
-
-static void musvg_start_element(void* ud, const char* el, const char** a)
-{
-    musvg_parser* p = (musvg_parser*)ud;
-
-    debugf("musvg_start_element: %s\n", el);
-
-    for (size_t i = 0; i < array_size(musvg_element_names); i++) {
-        const char *name = musvg_element_names[i];
-        if (name && strcmp(el, name) == 0) {
-            musvg_node *node = musvg_node_add(p, i);
-            for (uint i = 0; a[i]; i += 2)
-            {
-                if (!musvg_parse_attr(p, node, a[i], a[i + 1]))
-                {
-                    // todo
-                }
-            }
-            musvg_stack_push(p);
-            return;
-        }
-    }
-}
-
-static void musvg_end_element(void* ud, const char* el)
-{
-    musvg_parser* p = (musvg_parser*)ud;
-
-    debugf("musvg_end_element: %s\n", el);
-
-    for (size_t i = 0; i < array_size(musvg_element_names); i++) {
-        const char *name = musvg_element_names[i];
-        if (name && strcmp(el, name) == 0) {
-            musvg_stack_pop(p);
-            return;
-        }
-    }
-}
-
-static void musvg_content(void* ud, const char* s)
-{
-    // empty
-}
-
-musvg_parser* musvg_parser_create()
-{
-    musvg_parser* p = (musvg_parser*)malloc(sizeof(musvg_parser));
-    memset(p,0,sizeof(musvg_parser));
-    points_init(p);
-    path_ops_init(p);
-    brushes_init(p);
-    nodes_init(p);
-    offsets_init(p);
-    storage_init(p);
-
-    storage_alloc(p,1,1);
-    assert(p->storage.offset == 1);
-
-    return p;
 }
 
 // binary readers
@@ -2344,9 +2221,12 @@ static const musvg_attr_buf_fn musvg_text_emitters[] = {
     [musvg_type_points]      = &musvg_write_text_points,
 };
 
-// attribute parsing
+// SVG attribute parsing
 
-static int musvg_parse_attr(musvg_parser* p, musvg_node* node, const char* name, const char* value)
+static void musvg_parse_style(musvg_parser* p, musvg_node* node, const char* str);
+
+static int musvg_parse_attr(musvg_parser* p, musvg_node* node,
+    const char* name, const char* value)
 {
     if (strcmp(name, "style") == 0) {
         musvg_parse_style(p, node, value);
@@ -2364,7 +2244,63 @@ static int musvg_parse_attr(musvg_parser* p, musvg_node* node, const char* name,
     return 1;
 }
 
-// emiters
+static int musvg_parse_name_value(musvg_parser* p, musvg_node* node,
+    const char* start, const char* end)
+{
+    const char* str;
+    const char* val;
+    char name[128];
+    char value[384];
+    int n;
+
+    str = start;
+    while (str < end && *str != ':') ++str;
+
+    val = str;
+
+    // Right Trim
+    while (str > start &&  (*str == ':' || musvg_isspace(*str))) --str;
+    ++str;
+
+    n = (int)(str - start);
+    if (n >= sizeof(name)) n = sizeof(name) - 1;
+    if (n) memcpy(name, start, n);
+    name[n] = 0;
+
+    while (val < end && (*val == ':' || musvg_isspace(*val))) ++val;
+
+    n = (int)(end - val);
+    if (n >= sizeof(value)) n = sizeof(value) - 1;
+    if (n) memcpy(value, val, n);
+    value[n] = 0;
+
+    return musvg_parse_attr(p, node, name, value);
+}
+
+static void musvg_parse_style(musvg_parser* p, musvg_node* node, const char* str)
+{
+    const char *start, *end;
+
+    debugf("musvg_parse_style: [%s]\n", str);
+
+    while (*str)
+    {
+        // Left Trim
+        while(*str && musvg_isspace(*str)) ++str;
+        start = str;
+        while(*str && *str != ';') ++str;
+        end = str;
+
+        // Right Trim
+        while (end > start &&  (*end == ';' || musvg_isspace(*end))) --end;
+        ++end;
+
+        musvg_parse_name_value(p, node, start, end);
+        if (*str) ++str;
+    }
+}
+
+// SVG emitters
 
 void musvg_emit_text_begin(musvg_parser *p, musvg_buf *buf, musvg_node *node, uint depth, uint close)
 {
@@ -2507,6 +2443,67 @@ int musvg_emit_file(musvg_parser* p, musvg_format_t format, const char *filename
     return ret;
 }
 
+// SVG XML element callbacks
+
+static void musvg_start_element(void* ud, const char* el, const char** a)
+{
+    musvg_parser* p = (musvg_parser*)ud;
+
+    debugf("musvg_start_element: %s\n", el);
+
+    for (size_t i = 0; i < array_size(musvg_element_names); i++) {
+        const char *name = musvg_element_names[i];
+        if (name && strcmp(el, name) == 0) {
+            musvg_node *node = musvg_node_add(p, i);
+            for (uint i = 0; a[i]; i += 2)
+            {
+                if (!musvg_parse_attr(p, node, a[i], a[i + 1]))
+                {
+                    // todo
+                }
+            }
+            musvg_stack_push(p);
+            return;
+        }
+    }
+}
+
+static void musvg_end_element(void* ud, const char* el)
+{
+    musvg_parser* p = (musvg_parser*)ud;
+
+    debugf("musvg_end_element: %s\n", el);
+
+    for (size_t i = 0; i < array_size(musvg_element_names); i++) {
+        const char *name = musvg_element_names[i];
+        if (name && strcmp(el, name) == 0) {
+            musvg_stack_pop(p);
+            return;
+        }
+    }
+}
+
+static void musvg_content(void* ud, const char* s)
+{
+    // empty
+}
+
+// SVG parsers
+
+int musvg_parse_svg_xml(musvg_parser* p, musvg_buf *buf)
+{
+    /* copy the source buffer due to xml parse modifying the
+     * buffer to allow in-place zero-termination of attributes.
+     * also make it look like we read from the source buffer. */
+    musvg_buf *tmp = vf_buf_new(buf->write_marker);
+    vf_buf_write_bytes(tmp, buf->data, buf->write_marker);
+    int ret = musvg_parse_xml(tmp->data, musvg_start_element,
+                              musvg_end_element, musvg_content, p);
+    buf->read_marker = buf->write_marker;
+    vf_buf_destroy(tmp);
+    return ret;
+}
+
 int musvg_parse_binary(musvg_parser *p, musvg_buf *buf)
 {
     musvg_small element, attr;
@@ -2534,77 +2531,6 @@ int musvg_parse_binary(musvg_parser *p, musvg_buf *buf)
     }
 
     return 0;
-}
-
-static void print_stats_titles()
-{
-    printf("%-10s %10s %10s %10s %10s %10s\n",
-        "name", "size", "count", "capacity", "used(B)", "alloc(B)");
-}
-static void print_stats_lines()
-{
-    printf("%-10s %10s %10s %10s %10s %10s\n",
-        "----------", "----------", "----------", "----------", "----------", "----------");
-}
-
-static void print_array_stats(array_buffer *ab, size_t stride, const char *name)
-{
-    printf("%-10s %10zu %10zu %10zu %10zu %10zu\n",
-        name, stride, ab->count, ab->capacity, ab->count * stride, ab->capacity * stride);
-}
-
-static void print_storage_stats(storage_buffer *sb, const char *name)
-{
-    printf("%-10s %10s %10s %10s %10zu %10zu\n",
-        name, "", "", "", sb->offset, sb->capacity);
-}
-
-static void print_summary_totals(musvg_parser *p)
-{
-    size_t capacity = nodes_capacity(p) + points_capacity(p) +
-        path_ops_capacity(p) + offsets_capacity(p) + storage_capacity(p);
-    size_t size = nodes_size(p) + points_size(p) + path_ops_size(p) +
-        offsets_size(p) + storage_size(p);
-    printf("%-10s %10s %10s %10s %10zu %10zu\n",
-        "totals", "", "", "", size, capacity);
-}
-
-void musvg_parser_stats(musvg_parser* p)
-{
-    print_stats_titles();
-    print_stats_lines();
-    print_array_stats(&p->nodes, sizeof(musvg_node), "nodes");
-    print_array_stats(&p->points, sizeof(float), "points");
-    print_array_stats(&p->path_ops, sizeof(musvg_path_op), "path_ops");
-    print_array_stats(&p->offsets, sizeof(musvg_offset), "attr_map");
-    //print_array_stats(&p->brushes, sizeof(musvg_brush), "brushes");
-    print_storage_stats(&p->storage, "storage");
-    print_stats_lines();
-    print_summary_totals(p);
-}
-
-void musvg_parser_destroy(musvg_parser *p)
-{
-    points_destroy(p);
-    path_ops_destroy(p);
-    brushes_destroy(p);
-    nodes_destroy(p);
-    offsets_destroy(p);
-    storage_destroy(p);
-    free(p);
-}
-
-int musvg_parse_svg_xml(musvg_parser* p, musvg_buf *buf)
-{
-    /* copy the source buffer due to xml parse modifying the
-     * buffer to allow in-place zero-termination of attributes.
-     * also make it look like we read from the source buffer. */
-    musvg_buf *tmp = vf_buf_new(buf->write_marker);
-    vf_buf_write_bytes(tmp, buf->data, buf->write_marker);
-    int ret = musvg_parse_xml(tmp->data, musvg_start_element, musvg_end_element, musvg_content, p);
-    buf->read_marker = buf->write_marker;
-    vf_buf_destroy(tmp);
-    return ret;
 }
 
 int musvg_parse_binary_vf(musvg_parser* p, musvg_buf *buf)
@@ -2640,6 +2566,90 @@ int musvg_parse_file(musvg_parser* p, musvg_format_t format, const char *filenam
     free(span.data);
     return ret;
 }
+
+// SVG parser ctor/dtor
+
+musvg_parser* musvg_parser_create()
+{
+    musvg_parser* p = (musvg_parser*)malloc(sizeof(musvg_parser));
+    memset(p,0,sizeof(musvg_parser));
+    points_init(p);
+    path_ops_init(p);
+    brushes_init(p);
+    nodes_init(p);
+    offsets_init(p);
+    storage_init(p);
+
+    storage_alloc(p,1,1);
+    assert(p->storage.offset == 1);
+
+    return p;
+}
+
+void musvg_parser_destroy(musvg_parser *p)
+{
+    points_destroy(p);
+    path_ops_destroy(p);
+    brushes_destroy(p);
+    nodes_destroy(p);
+    offsets_destroy(p);
+    storage_destroy(p);
+    free(p);
+}
+
+// SVG parser stats
+
+static void print_stats_titles()
+{
+    printf("%-10s %10s %10s %10s %10s %10s\n",
+        "name",       "size",       "count",
+        "capacity",   "used(B)",    "alloc(B)");
+}
+static void print_stats_lines()
+{
+    printf("%-10s %10s %10s %10s %10s %10s\n",
+        "----------", "----------", "----------",
+        "----------", "----------", "----------");
+}
+
+static void print_array_stats(array_buffer *ab, size_t stride, const char *name)
+{
+    printf("%-10s %10zu %10zu %10zu %10zu %10zu\n",
+        name, stride, ab->count, ab->capacity,
+        ab->count * stride, ab->capacity * stride);
+}
+
+static void print_storage_stats(storage_buffer *sb, const char *name)
+{
+    printf("%-10s %10s %10s %10s %10zu %10zu\n",
+        name, "", "", "", sb->offset, sb->capacity);
+}
+
+static void print_summary_totals(musvg_parser *p)
+{
+    size_t capacity = nodes_capacity(p) + points_capacity(p) +
+        path_ops_capacity(p) + offsets_capacity(p) + storage_capacity(p);
+    size_t size = nodes_size(p) + points_size(p) + path_ops_size(p) +
+        offsets_size(p) + storage_size(p);
+    printf("%-10s %10s %10s %10s %10zu %10zu\n",
+        "totals", "", "", "", size, capacity);
+}
+
+void musvg_parser_stats(musvg_parser* p)
+{
+    print_stats_titles();
+    print_stats_lines();
+    print_array_stats(&p->nodes, sizeof(musvg_node), "nodes");
+    print_array_stats(&p->points, sizeof(float), "points");
+    print_array_stats(&p->path_ops, sizeof(musvg_path_op), "path_ops");
+    print_array_stats(&p->offsets, sizeof(musvg_offset), "attr_map");
+    //print_array_stats(&p->brushes, sizeof(musvg_brush), "brushes");
+    print_storage_stats(&p->storage, "storage");
+    print_stats_lines();
+    print_summary_totals(p);
+}
+
+// file io helper functions
 
 musvg_span musvg_read_file(const char* filename)
 {
