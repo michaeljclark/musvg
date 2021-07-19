@@ -354,8 +354,6 @@ struct musvg_points
 struct musvg_path_op
 {
     musvg_small code;
-    uint point_offset;
-    uint point_count;
 };
 
 struct musvg_path_d

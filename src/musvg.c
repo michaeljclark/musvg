@@ -206,6 +206,16 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define path_ops_add(p,ptr) array_buffer_add(&p->path_ops,sizeof(musvg_path_op),ptr)
 #define path_ops_destroy(p) array_buffer_destroy(&p->path_ops)
 
+#define path_points_init(p) array_buffer_init(&p->path_points,sizeof(musvg_points),16)
+#define path_points_count(p) array_buffer_count(&p->path_points)
+#define path_points_data(p) array_buffer_data(&p->path_points)
+#define path_points_size(p) array_buffer_size(&p->path_points,sizeof(musvg_points))
+#define path_points_capacity(p) array_buffer_capacity(&p->path_points,sizeof(musvg_points))
+#define path_points_get(p,idx) ((musvg_points*)array_buffer_get(&p->path_points,sizeof(musvg_points),idx))
+#define path_points_resize(p) array_buffer_resize(&p->path_points,sizeof(musvg_points))
+#define path_points_add(p,ptr) array_buffer_add(&p->path_points,sizeof(musvg_points),ptr)
+#define path_points_destroy(p) array_buffer_destroy(&p->path_points)
+
 #define brushes_init(p) array_buffer_init(&p->brushes,sizeof(musvg_brush),16)
 #define brushes_count(p) array_buffer_count(&p->brushes)
 #define brushes_data(p) array_buffer_data(&p->brushes)
@@ -251,6 +261,7 @@ struct musvg_parser
 {
     array_buffer points;
     array_buffer path_ops;
+    array_buffer path_points;
     array_buffer brushes;
     array_buffer nodes;
     array_buffer offsets;
@@ -1598,8 +1609,10 @@ static musvg_path_d musvg_parse_path_ops(musvg_parser *p, const char *s)
             code = musvg_parse_opcode(opc);
             argc = musvg_path_opcode_t_arg_count(code);
             if (code != 0 && argc == 0) {
-                musvg_path_op path_op = { code, 0, 0 };
-                path_ops_add(p, &path_op);
+                musvg_path_op op = { code };
+                musvg_points points = { 0, 0 };
+                path_ops_add(p, &op);
+                path_points_add(p, &points);
             }
             continue;
         }
@@ -1610,8 +1623,10 @@ static musvg_path_d musvg_parse_path_ops(musvg_parser *p, const char *s)
             for (uint i = 0; i < argc; i++) {
                 points_add(p, args + i);
             }
-            musvg_path_op path_op = { code, points_offset, argc };
-            path_ops_add(p, &path_op);
+            musvg_path_op op = { code };
+            musvg_points points = { points_offset, argc };
+            path_ops_add(p, &op);
+            path_points_add(p, &points);
         }
         nargs = (nargs + 1) % argc;
     }
@@ -1818,10 +1833,12 @@ int musvg_read_binary_path(musvg_parser *p, musvg_buf *buf, musvg_node *node, mu
         ullong count = 0; musvg_small code = 0;
         assert(vf_buf_read_i8(buf, (int8_t*)&code));
         assert(!leb_u64_read(buf, &count));
-        musvg_path_op path_op = { code, points_count(p), count };
-        path_ops_add(p, &path_op);
-        float *points_arr = points_alloc(p, path_op.point_count);
-        assert(!p->f32_read_vec(buf, points_arr, path_op.point_count));
+        musvg_path_op op = { code };
+        musvg_points points = { points_count(p), count };
+        path_ops_add(p, &op);
+        path_points_add(p, &points);
+        float *points_arr = points_alloc(p, points.point_count);
+        assert(!p->f32_read_vec(buf, points_arr, points.point_count));
     }
     return 0;
 }
@@ -1927,12 +1944,13 @@ int musvg_write_binary_path(musvg_parser *p, musvg_buf *buf, musvg_node *node, m
     ullong count = ops.op_count;
     assert(!leb_u64_write(buf, &count));
     for (uint j = 0; j < ops.op_count; j++) {
-        const  musvg_path_op *path_op = path_ops_get(p, ops.op_offset + j);
-        musvg_small code = path_op->code;
-        ullong count = path_op->point_count;
+        const  musvg_path_op *op = path_ops_get(p, ops.op_offset + j);
+        const  musvg_points *points = path_points_get(p, ops.op_offset + j);
+        musvg_small code = op->code;
+        ullong count = points->point_count;
         assert(vf_buf_write_i8(buf, (int8_t)code));
         assert(!leb_u64_write(buf, &count));
-        const float *v = points_get(p, path_op->point_offset);
+        const float *v = points_get(p, points->point_offset);
         assert(!p->f32_write_vec(buf, v, count));
     }
     return 0;
@@ -2133,11 +2151,12 @@ int musvg_write_text_path(musvg_parser *p, musvg_buf *buf, musvg_node *node, mus
     char last_code = 0;
     for (uint j = 0; j < ops.op_count; j++) {
         char str[128];
-        const musvg_path_op *path_op = path_ops_get(p, ops.op_offset + j);
-        int8_t code = musvg_path_opcode_t_cmd_char(path_op->code);
+        const musvg_path_op *op = path_ops_get(p, ops.op_offset + j);
+        const musvg_points *points = path_points_get(p, ops.op_offset + j);
+        int8_t code = musvg_path_opcode_t_cmd_char(op->code);
         assert(vf_buf_write_i8(buf, code != last_code ? code : ' '));
-        const float *v = points_get(p, path_op->point_offset);
-        for (uint k = 0; k < path_op->point_count; k++) {
+        const float *v = points_get(p, points->point_offset);
+        for (uint k = 0; k < points->point_count; k++) {
             if (k > 0) assert(vf_buf_write_i8(buf, ','));
             int len = snprintf(str, sizeof(str), "%.8g", v[k]);
             assert(vf_buf_write_bytes(buf, str, len));
@@ -2576,6 +2595,7 @@ musvg_parser* musvg_parser_create()
     memset(p,0,sizeof(musvg_parser));
     points_init(p);
     path_ops_init(p);
+    path_points_init(p);
     brushes_init(p);
     nodes_init(p);
     offsets_init(p);
@@ -2591,6 +2611,7 @@ void musvg_parser_destroy(musvg_parser *p)
 {
     points_destroy(p);
     path_ops_destroy(p);
+    path_points_destroy(p);
     brushes_destroy(p);
     nodes_destroy(p);
     offsets_destroy(p);
@@ -2630,9 +2651,11 @@ static void print_storage_stats(storage_buffer *sb, const char *name)
 static void print_summary_totals(musvg_parser *p)
 {
     size_t capacity = nodes_capacity(p) + points_capacity(p) +
-        path_ops_capacity(p) + offsets_capacity(p) + storage_capacity(p);
+        path_ops_capacity(p) + path_points_capacity(p) +
+        offsets_capacity(p) + storage_capacity(p);
     size_t size = nodes_size(p) + points_size(p) +
-        path_ops_size(p) + offsets_size(p) + storage_size(p);
+        path_ops_size(p) + path_points_size(p) +
+        offsets_size(p) + storage_size(p);
     printf("%-15s %5s %10s %10s %10zu %10zu\n",
         "totals", "", "", "", size, capacity);
 }
@@ -2645,6 +2668,7 @@ void musvg_parser_stats(musvg_parser* p)
     print_array_stats(&p->offsets, sizeof(musvg_offset), "attr_map");
     print_storage_stats(&p->storage, "attr_storage");
     print_array_stats(&p->path_ops, sizeof(musvg_path_op), "path_ops");
+    print_array_stats(&p->path_points, sizeof(musvg_points), "path_points");
     print_array_stats(&p->points, sizeof(float), "points");
     //print_array_stats(&p->brushes, sizeof(musvg_brush), "brushes");
     print_stats_lines();
