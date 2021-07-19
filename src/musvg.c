@@ -2602,37 +2602,38 @@ void musvg_parser_destroy(musvg_parser *p)
 
 static void print_stats_titles()
 {
-    printf("%-10s %10s %10s %10s %10s %10s\n",
+    printf("%-15s %5s %10s %10s %10s %10s\n",
         "name",       "size",       "count",
         "capacity",   "used(B)",    "alloc(B)");
 }
 static void print_stats_lines()
 {
-    printf("%-10s %10s %10s %10s %10s %10s\n",
-        "----------", "----------", "----------",
+    printf("%-15s %5s %10s %10s %10s %10s\n",
+        "---------------", "-----", "----------",
         "----------", "----------", "----------");
 }
 
 static void print_array_stats(array_buffer *ab, size_t stride, const char *name)
 {
-    printf("%-10s %10zu %10zu %10zu %10zu %10zu\n",
+    printf("%-15s %5zu %10zu %10zu %10zu %10zu\n",
         name, stride, ab->count, ab->capacity,
         ab->count * stride, ab->capacity * stride);
 }
 
 static void print_storage_stats(storage_buffer *sb, const char *name)
 {
-    printf("%-10s %10s %10s %10s %10zu %10zu\n",
-        name, "", "", "", sb->offset, sb->capacity);
+    printf("%-15s %5u %10zu %10zu %10zu %10zu\n",
+        name, 1, sb->offset, sb->capacity,
+        sb->offset, sb->capacity);
 }
 
 static void print_summary_totals(musvg_parser *p)
 {
     size_t capacity = nodes_capacity(p) + points_capacity(p) +
         path_ops_capacity(p) + offsets_capacity(p) + storage_capacity(p);
-    size_t size = nodes_size(p) + points_size(p) + path_ops_size(p) +
-        offsets_size(p) + storage_size(p);
-    printf("%-10s %10s %10s %10s %10zu %10zu\n",
+    size_t size = nodes_size(p) + points_size(p) +
+        path_ops_size(p) + offsets_size(p) + storage_size(p);
+    printf("%-15s %5s %10s %10s %10zu %10zu\n",
         "totals", "", "", "", size, capacity);
 }
 
@@ -2641,11 +2642,11 @@ void musvg_parser_stats(musvg_parser* p)
     print_stats_titles();
     print_stats_lines();
     print_array_stats(&p->nodes, sizeof(musvg_node), "nodes");
-    print_array_stats(&p->points, sizeof(float), "points");
-    print_array_stats(&p->path_ops, sizeof(musvg_path_op), "path_ops");
     print_array_stats(&p->offsets, sizeof(musvg_offset), "attr_map");
+    print_storage_stats(&p->storage, "attr_storage");
+    print_array_stats(&p->path_ops, sizeof(musvg_path_op), "path_ops");
+    print_array_stats(&p->points, sizeof(float), "points");
     //print_array_stats(&p->brushes, sizeof(musvg_brush), "brushes");
-    print_storage_stats(&p->storage, "storage");
     print_stats_lines();
     print_summary_totals(p);
 }
