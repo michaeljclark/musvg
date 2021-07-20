@@ -1004,29 +1004,29 @@ static musvg_color musvg_parse_color_rgb(const char* str)
     }
 }
 
-static musvg_id musvg_parse_url(const char* str)
+static uint alloc_string(musvg_parser *p, const char *str, size_t len);
+
+static uint musvg_parse_url(musvg_parser *p, const char* str)
 {
-    musvg_id id;
-    int i = 0;
+    char buf[128];
+    int len = 0;
     str += 4; // "url(";
     if (*str == '#')
         str++;
-    while (i < 63 && *str != ')') {
-        id.name[i] = *str++;
-        i++;
+    while (len < (sizeof(buf)-1) && *str != ')') {
+        buf[len++] = *str++;
     }
-    id.name[i] = '\0';
-    return id;
+    buf[len] = '\0';
+    return alloc_string(p, buf, len);
 }
 
-static musvg_color musvg_parse_color_url(const char* str)
+static musvg_color musvg_parse_color_url(musvg_parser *p, const char* str)
 {
-    musvg_color col = { musvg_color_type_url, 0 };
-    col.url = musvg_parse_url(str);
+    musvg_color col = { musvg_color_type_url, musvg_parse_url(p, str) };
     return col;
 }
 
-static musvg_color musvg_parse_color(const char* str)
+static musvg_color musvg_parse_color(musvg_parser *p, const char* str)
 {
     size_t len = 0;
     while(*str == ' ') ++str;
@@ -1034,7 +1034,7 @@ static musvg_color musvg_parse_color(const char* str)
     if (strcmp(str, "none") == 0)
         return musvg_color_none();
     else if (strncmp(str, "url(", 4) == 0)
-        return musvg_parse_color_url(str);
+        return musvg_parse_color_url(p, str);
     else if (len >= 1 && *str == '#')
         return musvg_parse_color_hex(str);
     else if (len >= 4 && str[0] == 'r' && str[1] == 'g' && str[2] == 'b' && str[3] == '(')
@@ -1610,11 +1610,9 @@ static int musvg_dasharray_string(char *buf, size_t buflen, const musvg_dasharra
     return len;
 }
 
-static musvg_id musvg_parse_id(const char* str)
+static musvg_id musvg_parse_id(musvg_parser *p, const char* str)
 {
-    musvg_id id;
-    strncpy(id.name, str, sizeof(id.name) - 1);
-    id.name[sizeof(id.name) - 1] = '\0';
+    musvg_id id = { alloc_string(p, str, strlen(str)) };
     return id;
 }
 
@@ -1719,6 +1717,20 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
 
 // SVG attribute storage
 
+static inline uint alloc_string(musvg_parser *p, const char *str, size_t len)
+{
+    uint storage = attr_storage_alloc(p, len + 1, 1);
+    char *buffer = (char*)attr_storage_get(p, storage);
+    memcpy(buffer, str, len);
+    buffer[len] = '\0';
+    return storage;
+}
+
+static inline char* fetch_string(musvg_parser *p, uint storage)
+{
+    return (char*)attr_storage_get(p, storage);
+}
+
 static inline uint find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
 {
     /* search attribute list backwards as a temporal affinity optimization */
@@ -1791,11 +1803,13 @@ int musvg_read_binary_enum(musvg_parser *p, musvg_buf *buf, musvg_node *node, mu
 
 int musvg_read_binary_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
+    char id_str[128];
     musvg_id *id = (musvg_id*)attr_pointer(p, node, attr);
-    ullong id_name_len = 0;
-    assert(!leb_u64_read(buf, &id_name_len));
-    assert(id_name_len < sizeof(id->name));
-    assert(vf_buf_read_bytes(buf, id->name, id_name_len));
+    ullong id_len = 0;
+    assert(!leb_u64_read(buf, &id_len));
+    assert(id_len < sizeof(id_str));
+    assert(vf_buf_read_bytes(buf, id_str, id_len));
+    id->name = alloc_string(p, id_str, id_len);
     return 0;
 }
 
@@ -1814,10 +1828,12 @@ int musvg_read_binary_color(musvg_parser *p, musvg_buf *buf, musvg_node *node, m
     if (color->type == musvg_color_type_rgba) {
         assert(vf_buf_read_i32(buf, (int32_t*)&color->color));
     } else if (color->type == musvg_color_type_url) {
-        ullong url_name_len = 0;
-        assert(!leb_u64_read(buf, &url_name_len));
-        assert(url_name_len < sizeof(color->url.name));
-        assert(vf_buf_read_bytes(buf, color->url.name, url_name_len));
+        ullong url_len = 0;
+        char url_str[128];
+        assert(!leb_u64_read(buf, &url_len));
+        assert(url_len < sizeof(url_str));
+        assert(vf_buf_read_bytes(buf, url_str, url_len));
+        color->url = alloc_string(p, url_str, url_len);
     }
     return 0;
 }
@@ -1915,9 +1931,10 @@ int musvg_write_binary_enum(musvg_parser *p, musvg_buf *buf, musvg_node *node, m
 int musvg_write_binary_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     const musvg_id id = *(musvg_id*)attr_pointer(p, node, attr);
-    const ullong id_name_len = strlen(id.name);
-    assert(!leb_u64_write(buf, &id_name_len));
-    assert(vf_buf_write_bytes(buf, id.name, id_name_len));
+    const char* id_str = fetch_string(p, id.name);
+    const ullong id_len = strlen(id_str);
+    assert(!leb_u64_write(buf, &id_len));
+    assert(vf_buf_write_bytes(buf, id_str, id_len));
     return 0;
 }
 
@@ -1936,9 +1953,10 @@ int musvg_write_binary_color(musvg_parser *p, musvg_buf *buf, musvg_node *node, 
     if (color.type == musvg_color_type_rgba) {
         assert(vf_buf_write_i32(buf, (int32_t)color.color));
     } else if (color.type == musvg_color_type_url) {
-        const ullong url_name_len = strlen(color.url.name);
-        assert(!leb_u64_write(buf, &url_name_len));
-        assert(vf_buf_write_bytes(buf, color.url.name, url_name_len));
+        const char *url_str = fetch_string(p, color.url);
+        const ullong url_len = strlen(url_str);
+        assert(!leb_u64_write(buf, &url_len));
+        assert(vf_buf_write_bytes(buf, url_str, url_len));
     }
     return 0;
 }
@@ -2030,7 +2048,7 @@ int musvg_read_text_enum(musvg_parser *p, const char *s, musvg_node *node, musvg
 
 int musvg_read_text_id(musvg_parser *p, const char *s, musvg_node *node, musvg_attr_t attr)
 {
-    musvg_id val = musvg_parse_id(s);
+    musvg_id val = musvg_parse_id(p, s);
     musvg_id *ptr = (musvg_id*)attr_pointer(p, node, attr);
     *ptr = val;
     return 0;
@@ -2046,7 +2064,7 @@ int musvg_read_text_length(musvg_parser *p, const char *s, musvg_node *node, mus
 
 int musvg_read_text_color(musvg_parser *p, const char *s, musvg_node *node, musvg_attr_t attr)
 {
-    musvg_color val = musvg_parse_color(s);
+    musvg_color val = musvg_parse_color(p, s);
     musvg_color *ptr = (musvg_color*)attr_pointer(p, node, attr);
     *ptr = val;
     return 0;
@@ -2121,8 +2139,9 @@ int musvg_write_text_enum(musvg_parser *p, musvg_buf *buf, musvg_node *node, mus
 int musvg_write_text_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     const musvg_id id = *(musvg_id*)attr_pointer(p, node, attr);
-    const ullong id_name_len = strlen(id.name);
-    assert(vf_buf_write_bytes(buf, id.name, id_name_len));
+    const char* id_str = fetch_string(p, id.name);
+    const ullong id_len = strlen(id_str);
+    assert(vf_buf_write_bytes(buf, id_str, id_len));
     return 0;
 }
 
@@ -2144,7 +2163,8 @@ int musvg_write_text_color(musvg_parser *p, musvg_buf *buf, musvg_node *node, mu
     char str[128];
     const musvg_color color = *(musvg_color*)attr_pointer(p, node, attr);
     if (color.type == musvg_color_type_url) {
-        int len = snprintf(str, sizeof(str), "url(#%s)", color.url.name);
+        const char* url_str = fetch_string(p, color.url);
+        int len = snprintf(str, sizeof(str), "url(#%s)", url_str);
         assert(vf_buf_write_bytes(buf, str, len));
     } else if (color.type == musvg_color_type_rgba) {
         int len = snprintf(str, sizeof(str), "#%06x", color.color);

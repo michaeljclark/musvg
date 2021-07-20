@@ -307,7 +307,7 @@ struct musvg_span
 
 struct musvg_id
 {
-    char name[64];
+    uint name;
 };
 
 struct musvg_length
@@ -321,7 +321,7 @@ struct musvg_color
     musvg_small type;
     union {
         uint color;
-        musvg_id url;
+        uint url;
     };
 };
 
