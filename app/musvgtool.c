@@ -66,8 +66,8 @@ int main(int argc, char **argv)
             "\n"
             "-if,--input-file (<filename>|-)\n"
             "-of,--output-file (<filename>|-)\n"
-            "-i,--input-format (xml|binary-vf|binary-ieee)\n"
-            "-o,--output-format (xml|text|binary-vf|binary-ieee)\n"
+            "-i,--input-format (xml|svgv|svgb)\n"
+            "-o,--output-format (xml|svgv|svgb|text)\n"
             "-s,--stats\n"
             "-d,--debug\n"
             "-h,--help\n",
@@ -79,6 +79,7 @@ int main(int argc, char **argv)
     musvg_parse_file(p, input_format, input_filename);
     musvg_emit_file(p, output_format, output_filename);
     if (print_stats) {
+        printf("\n");
         musvg_parser_stats(p);
     }
     musvg_parser_destroy(p);

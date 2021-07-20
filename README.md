@@ -23,6 +23,51 @@ for other formats such as [IconVG](https://github.com/google/iconvg/).
 presently there is only a parser split out from nanosvg with the addition
 of a graph representation that preserves the structure of the SVG document.
 
+## musvgtool
+
+musvgtool is a utility that converts between SVG XML and SVG Binary.
+
+#### musvgtool test/input/path.svg statistics
+
+example shows conversion of a small file from XML to binary using the
+`--stats` option to show memory usage for the succinct internal format.
+
+```
+; ./build/musvgtool --stats -i xml -o svgb -if test/input/path.svg -of test/output/path.svgb
+
+name             size      count   capacity    used(B)   alloc(B)
+--------------- ----- ---------- ---------- ---------- ----------
+nodes              16          4         16         64        256
+attr_offsets        8         11         16         88        128
+attr_storage        1        324        512        324        512
+path_ops            1         11         16         11         16
+path_points         8         11         16         88        128
+points              4         20         32         80        128
+--------------- ----- ---------- ---------- ---------- ----------
+totals                                             655       1168
+```
+
+#### musvgtool test/input/tiger.svg statistics
+
+example shows conversion of a larger file from XML to binary using the
+`--stats` option to show memory usage for the succinct internal format.
+
+```
+; ./build/musvgtool --stats -i xml -o svgb -if test/input/tiger.svg -of test/output/tiger.svgb
+
+name             size      count   capacity    used(B)   alloc(B)
+--------------- ----- ---------- ---------- ---------- ----------
+nodes              16        482        512       7712       8192
+attr_offsets        8        621       1024       4968       8192
+attr_storage        1       5000       8192       5000       8192
+path_ops            1       2510       4096       2510       4096
+path_points         8       2510       4096      20080      32768
+points              4      12174      16384      48696      65536
+--------------- ----- ---------- ---------- ---------- ----------
+totals                                           88966     126976
+```
+
+
 ## topological hashing
 
 once the binary representation is in place, there is a plan to succinctly

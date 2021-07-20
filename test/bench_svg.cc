@@ -66,9 +66,9 @@ static bench_result bench_parse(llong count, bench_info *info)
 }
 
 static benchmark benchmarks[] = {
-    { &bench_parse, { "parse-svg-xml",            "test/output/tiger-1.svg" ,    musvg_format_xml         } },
-    { &bench_parse, { "parse-svg-binary-vf128",   "test/output/tiger-1.vfbin",   musvg_format_binary_vf   } },
-    { &bench_parse, { "parse-svg-binary-ieee754", "test/output/tiger-1.ieeebin", musvg_format_binary_ieee } }
+    { &bench_parse, { "parse-svg-xml",      "test/output/tiger.svg" , musvg_format_xml         } },
+    { &bench_parse, { "parse-svgv-vf128",   "test/output/tiger.svgv", musvg_format_binary_vf   } },
+    { &bench_parse, { "parse-svgb-ieee754", "test/output/tiger.svgb", musvg_format_binary_ieee } }
 };
 
 static const char* format_unit(llong count)

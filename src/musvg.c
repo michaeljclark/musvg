@@ -1419,7 +1419,11 @@ musvg_small musvg_parse_format(const char *format)
         return musvg_format_xml;
     else if (strcmp(format, "binary-vf") == 0)
         return musvg_format_binary_vf;
+    else if (strcmp(format, "svgv") == 0)
+        return musvg_format_binary_vf;
     else if (strcmp(format, "binary-ieee") == 0)
+        return musvg_format_binary_ieee;
+    else if (strcmp(format, "svgb") == 0)
         return musvg_format_binary_ieee;
     return musvg_format_none;
 }
