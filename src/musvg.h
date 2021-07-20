@@ -50,6 +50,7 @@ typedef enum musvg_unit_t musvg_unit_t;
 typedef enum musvg_display_t musvg_display_t;
 typedef enum musvg_align_t musvg_align_t;
 typedef enum musvg_crop_t musvg_crop_t;
+typedef enum musvg_color_type_t musvg_color_type_t;
 typedef enum musvg_gradient_unit_t musvg_gradient_unit_t;
 typedef enum musvg_gradient_spread_t musvg_gradient_spread_t;
 typedef enum musvg_element_t musvg_element_t;
@@ -267,6 +268,11 @@ enum musvg_crop_t {
     musvg_crop_slice,
     musvg_crop_DEFAULT = musvg_crop_meet
 };
+enum musvg_color_type_t {
+    musvg_color_type_none,
+    musvg_color_type_rgba,
+    musvg_color_type_url,
+};
 enum musvg_gradient_spread_t {
     musvg_gradient_spread_default,
     musvg_gradient_spread_pad,
@@ -312,8 +318,9 @@ struct musvg_length
 
 struct musvg_color
 {
+    musvg_small type;
     uint color;
-    musvg_small present;
+    musvg_id url;
 };
 
 struct musvg_transform
