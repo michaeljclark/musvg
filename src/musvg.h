@@ -437,11 +437,14 @@ void musvg_parser_stats(musvg_parser* p);
 
 int musvg_emit_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf);
 int musvg_emit_file(musvg_parser* p, musvg_format_t format, const char *filename);
+int musvg_emit_fd(musvg_parser* p, musvg_format_t format, int fd);
 
 int musvg_parse_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf);
 int musvg_parse_file(musvg_parser* p, musvg_format_t format, const char *filename);
+int musvg_parse_fd(musvg_parser* p, musvg_format_t format, int fd);
 
 musvg_span musvg_read_file(const char* filename);
+musvg_span musvg_read_fd(int fd);
 
 #ifdef __cplusplus
 }

@@ -2472,7 +2472,19 @@ int musvg_emit_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf)
 
 int musvg_emit_file(musvg_parser* p, musvg_format_t format, const char *filename)
 {
+    if (strcmp(filename,"-") == 0) {
+        return musvg_emit_fd(p, format, fileno(stdout));
+    }
+
     musvg_buf *buf = vf_buffered_writer_new(filename);
+    int ret = musvg_emit_buffer(p, format, buf);
+    vf_buf_destroy(buf);
+    return ret;
+}
+
+int musvg_emit_fd(musvg_parser* p, musvg_format_t format, int fd)
+{
+    musvg_buf *buf = vf_buffered_writer_fd(fd);
     int ret = musvg_emit_buffer(p, format, buf);
     vf_buf_destroy(buf);
     return ret;
@@ -2594,7 +2606,21 @@ int musvg_parse_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf)
 
 int musvg_parse_file(musvg_parser* p, musvg_format_t format, const char *filename)
 {
+    if (strcmp(filename,"-") == 0) {
+        return musvg_parse_fd(p, format, fileno(stdin));
+    }
+
     musvg_span span = musvg_read_file(filename);
+    musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
+    int ret = musvg_parse_buffer(p, format, buf);
+    vf_buf_destroy(buf);
+    free(span.data);
+    return ret;
+}
+
+int musvg_parse_fd(musvg_parser* p, musvg_format_t format, int fd)
+{
+    musvg_span span = musvg_read_fd(fd);
     musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
     int ret = musvg_parse_buffer(p, format, buf);
     vf_buf_destroy(buf);
@@ -2709,6 +2735,34 @@ musvg_span musvg_read_file(const char* filename)
     assert(fread(span.data, 1, span.size, fp) == span.size);
     span.data[span.size] = '\0';
     assert(!fclose(fp));
+
+    return span;
+}
+
+musvg_span musvg_read_fd(int fd)
+{
+    FILE* fp;
+    musvg_span span;
+    vf_buf *buf;
+    char temp[4096];
+    size_t nread;
+
+    buf = vf_resizable_buf_new();
+    buf->retain = 1; /* keep the buffer */
+    assert((fp = fdopen(fd, "rb")));
+
+    do {
+        nread = fread(temp, 1, sizeof(temp), fp);
+        if (nread > 1) {
+            assert(vf_buf_write_bytes(buf, temp, nread) == nread);
+        }
+    } while (nread > 0);
+
+    vf_buf_write_i8(buf, 0);
+
+    span.data = buf->data;
+    span.size = buf->write_marker;
+    vf_buf_destroy(buf);
 
     return span;
 }

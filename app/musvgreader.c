@@ -64,7 +64,8 @@ int main(int argc, char **argv)
         fprintf(stderr,
             "\nusage: %s [options]\n"
             "\n"
-            "-f,--input-file <filename>\n"
+            "-if,--input-file (<filename>|-)\n"
+            "-of,--output-file (<filename>|-)\n"
             "-i,--input-format (xml|binary-vf|binary-ieee)\n"
             "-o,--output-format (xml|text|binary-vf|binary-ieee)\n"
             "-d,--debug\n"

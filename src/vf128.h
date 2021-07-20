@@ -101,6 +101,9 @@ static void* vf_buf_get_userdata(vf_buf *buf);
 static void vf_buf_set_userdata(vf_buf *buf, void *userdata);
 static void vf_buf_destroy(vf_buf* buf);
 
+static size_t vf_buf_avaiable_read(vf_buf* buf);
+static size_t vf_buf_avaiable_write(vf_buf* buf);
+
 static size_t vf_buf_write_i8(vf_buf* buf, int8_t val);
 static size_t vf_buf_write_i16(vf_buf* buf, int16_t val);
 static size_t vf_buf_write_i32(vf_buf* buf, int32_t val);
@@ -127,6 +130,16 @@ static size_t vf_buf_read_vec_i64(vf_buf* buf, int64_t *val, size_t count);
 /*
  * buffer inline functions
  */
+
+static inline size_t vf_buf_avaiable_read(vf_buf* buf)
+{
+    return buf->write_marker - buf->read_marker;
+}
+
+static inline size_t vf_buf_avaiable_write(vf_buf* buf)
+{
+    return buf->buffer_size - buf->write_marker;
+}
 
 static inline u64 pow2_ge(u64 x)
 {
