@@ -29,10 +29,10 @@ int main(int argc, char **argv)
             input_format = musvg_parse_format(argv[++i]);
         } else if (check_opt(argv[i],"-o","--output-format") && i + 1 < argc) {
             output_format = musvg_parse_format(argv[++i]);
-        } else if (check_opt(argv[i],"-d","--debug")) {
-            vf_set_debug(1);
         } else if (check_opt(argv[i],"-s","--stats")) {
             print_stats = 1;
+        } else if (check_opt(argv[i],"-d","--debug")) {
+            vf_set_debug(1);
         } else if (check_opt(argv[i],"-h","--help")) {
             help_exit = 1;
         } else {
@@ -68,6 +68,7 @@ int main(int argc, char **argv)
             "-of,--output-file (<filename>|-)\n"
             "-i,--input-format (xml|binary-vf|binary-ieee)\n"
             "-o,--output-format (xml|text|binary-vf|binary-ieee)\n"
+            "-s,--stats\n"
             "-d,--debug\n"
             "-h,--help\n",
             argv[0]);
