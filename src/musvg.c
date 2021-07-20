@@ -270,7 +270,6 @@ struct musvg_node
 {
     uint type;
     int next;
-    int parent;
     uint attr_offset;
     uint attr_count;
 };
@@ -1665,13 +1664,11 @@ static int musvg_stack_top(musvg_parser *p)
 static void musvg_stack_push(musvg_parser *p)
 {
     if (p->node_depth == musvg_max_depth) abort();
-    int parent = musvg_stack_top(p);
     int depth = p->node_depth++;
     int previous = p->node_stack[depth];
     int current = nodes_count(p) - 1;
-    musvg_node *adjacent = nodes_get(p, previous);
-    if (adjacent->parent == parent && parent != musvg_node_sentinel) {
-        adjacent->next = current;
+    if (previous != musvg_node_sentinel) {
+        nodes_get(p, previous)->next = current;
     }
     p->node_stack[depth] = current;
 }
@@ -1679,7 +1676,8 @@ static void musvg_stack_push(musvg_parser *p)
 static void musvg_stack_pop(musvg_parser *p)
 {
     if (p->node_depth == 0) abort();
-    p->node_depth--;
+    int depth = p->node_depth--;
+    p->node_stack[depth] = musvg_node_sentinel;
 }
 
 static musvg_node* musvg_node_add(musvg_parser *p, uint type)
@@ -1687,7 +1685,6 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
     musvg_node *node = (musvg_node*)nodes_alloc(p, 1);
     node->type = type;
     node->next = musvg_node_sentinel;
-    node->parent = musvg_stack_top(p);
     node->attr_offset = node->attr_count = 0;
     return node;
 }
@@ -2611,6 +2608,10 @@ musvg_parser* musvg_parser_create()
 {
     musvg_parser* p = (musvg_parser*)malloc(sizeof(musvg_parser));
     memset(p,0,sizeof(musvg_parser));
+
+    for (uint i = 0; i < musvg_max_depth; i++)
+        p->node_stack[i] = musvg_node_sentinel;
+
     points_init(p);
     path_ops_init(p);
     path_points_init(p);
