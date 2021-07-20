@@ -319,8 +319,10 @@ struct musvg_length
 struct musvg_color
 {
     musvg_small type;
-    uint color;
-    musvg_id url;
+    union {
+        uint color;
+        musvg_id url;
+    };
 };
 
 struct musvg_transform

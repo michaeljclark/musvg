@@ -1021,7 +1021,8 @@ static musvg_id musvg_parse_url(const char* str)
 
 static musvg_color musvg_parse_color_url(const char* str)
 {
-    musvg_color col = { musvg_color_type_url, 0, musvg_parse_url(str) };
+    musvg_color col = { musvg_color_type_url, 0 };
+    col.url = musvg_parse_url(str);
     return col;
 }
 
