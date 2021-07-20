@@ -268,7 +268,7 @@ static vf_buf* vf_buffered_reader_new(const char* filename)
 
 static vf_buf* vf_buffered_writer_new(const char* filename)
 {
-    return vf_buffered_writer_fd(open(filename, O_CREAT|O_WRONLY, 0666));
+    return vf_buffered_writer_fd(open(filename, O_CREAT|O_TRUNC|O_WRONLY, 0666));
 }
 
 static inline vf_buf* vf_buf_new(size_t size)
