@@ -236,24 +236,24 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define nodes_alloc(p,count) array_buffer_alloc(&p->nodes,sizeof(musvg_node),count)
 #define nodes_destroy(p) array_buffer_destroy(&p->nodes)
 
-#define offsets_init(p) array_buffer_init(&p->offsets,sizeof(musvg_offset),16)
-#define offsets_count(p) array_buffer_count(&p->offsets)
-#define offsets_data(p) array_buffer_data(&p->offsets)
-#define offsets_size(p) array_buffer_size(&p->offsets,sizeof(musvg_offset))
-#define offsets_capacity(p) array_buffer_capacity(&p->offsets,sizeof(musvg_offset))
-#define offsets_get(p,idx) ((musvg_offset*)array_buffer_get(&p->offsets,sizeof(musvg_offset),idx))
-#define offsets_resize(p) array_buffer_resize(&p->offsets,sizeof(musvg_offset))
-#define offsets_add(p,ptr) array_buffer_add(&p->offsets,sizeof(musvg_offset),ptr)
-#define offsets_destroy(p) array_buffer_destroy(&p->offsets)
+#define attr_offsets_init(p) array_buffer_init(&p->attr_offsets,sizeof(musvg_offset),16)
+#define attr_offsets_count(p) array_buffer_count(&p->attr_offsets)
+#define attr_offsets_data(p) array_buffer_data(&p->attr_offsets)
+#define attr_offsets_size(p) array_buffer_size(&p->attr_offsets,sizeof(musvg_offset))
+#define attr_offsets_capacity(p) array_buffer_capacity(&p->attr_offsets,sizeof(musvg_offset))
+#define attr_offsets_get(p,idx) ((musvg_offset*)array_buffer_get(&p->attr_offsets,sizeof(musvg_offset),idx))
+#define attr_offsets_resize(p) array_buffer_resize(&p->attr_offsets,sizeof(musvg_offset))
+#define attr_offsets_add(p,ptr) array_buffer_add(&p->attr_offsets,sizeof(musvg_offset),ptr)
+#define attr_offsets_destroy(p) array_buffer_destroy(&p->attr_offsets)
 
-#define storage_init(p) storage_buffer_init(&p->storage,16)
-#define storage_data(p) storage_buffer_data(&p->storage)
-#define storage_size(p) storage_buffer_size(&p->storage)
-#define storage_capacity(p) storage_buffer_capacity(&p->storage)
-#define storage_get(p,idx) ((char*)storage_buffer_get(&p->storage,idx))
-#define storage_resize(p,size) storage_buffer_resize(&p->storage,size)
-#define storage_alloc(p,size,align) storage_buffer_alloc(&p->storage,size,align)
-#define storage_destroy(p) storage_buffer_destroy(&p->storage)
+#define attr_storage_init(p) storage_buffer_init(&p->attr_storage,16)
+#define attr_storage_data(p) storage_buffer_data(&p->attr_storage)
+#define attr_storage_size(p) storage_buffer_size(&p->attr_storage)
+#define attr_storage_capacity(p) storage_buffer_capacity(&p->attr_storage)
+#define attr_storage_get(p,idx) ((char*)storage_buffer_get(&p->attr_storage,idx))
+#define attr_storage_resize(p,size) storage_buffer_resize(&p->attr_storage,size)
+#define attr_storage_alloc(p,size,align) storage_buffer_alloc(&p->attr_storage,size,align)
+#define attr_storage_destroy(p) storage_buffer_destroy(&p->attr_storage)
 
 enum { musvg_max_depth = 256 };
 
@@ -264,8 +264,8 @@ struct musvg_parser
     array_buffer path_points;
     array_buffer brushes;
     array_buffer nodes;
-    array_buffer offsets;
-    storage_buffer storage;
+    array_buffer attr_offsets;
+    storage_buffer attr_storage;
 
     uint node_stack[musvg_max_depth];
     uint node_depth;
@@ -1680,7 +1680,7 @@ static inline int find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_
 {
     /* search attribute list backwards as a temporal affinity optimization */
     for (int i = node->attr_count - 1; i >= 0; i--) {
-        musvg_offset *offset = offsets_get(p, node->attr_offset + i);
+        musvg_offset *offset = attr_offsets_get(p, node->attr_offset + i);
         if (offset->attr_type == attr) return offset->attr_storage;
     }
 
@@ -1694,9 +1694,9 @@ static inline ullong alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t 
     size_t type = musvg_type_info_attr[attr].type;
     size_t size = musvg_type_storage[type].size;
     size_t align = musvg_type_storage[type].align;
-    musvg_offset o = { attr, storage_alloc(p, size, align) };
+    musvg_offset o = { attr, attr_storage_alloc(p, size, align) };
 
-    uint idx = offsets_add(p,&o);
+    uint idx = attr_offsets_add(p,&o);
     if (node->attr_count == 0) {
         /* write storage offset to attribute in offsets table */
         node->attr_count++;
@@ -1723,7 +1723,7 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
     if (attr_storage == 0) {
         attr_storage = alloc_attr(p, node, attr);
     }
-    return (musvg_small*)storage_get(p, attr_storage);
+    return (musvg_small*)attr_storage_get(p, attr_storage);
 }
 
 static inline musvg_small parse_enum(musvg_attr_t attr, const char *s)
@@ -2328,7 +2328,7 @@ void musvg_emit_text_begin(musvg_parser *p, musvg_buf *buf, musvg_node *node, ui
     vf_buf_write_format(buf, "node %s {\n",
         musvg_element_names[node->type]);
     for (int i = 0; i < node->attr_count; i++) {
-        musvg_offset *offset = offsets_get(p, node->attr_offset + i);
+        musvg_offset *offset = attr_offsets_get(p, node->attr_offset + i);
         int attr = offset->attr_type;
         const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
         musvg_attr_buf_fn fn = musvg_text_emitters[ti->type];
@@ -2351,7 +2351,7 @@ void musvg_emit_xml_begin(musvg_parser *p, musvg_buf *buf, musvg_node *node, uin
     vf_buf_write_i8(buf, '<');
     vf_buf_write_string(buf, musvg_element_names[node->type]);
     for (int i = 0; i < node->attr_count; i++) {
-        musvg_offset *offset = offsets_get(p, node->attr_offset + i);
+        musvg_offset *offset = attr_offsets_get(p, node->attr_offset + i);
         int attr = offset->attr_type;
         const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
         musvg_attr_buf_fn fn = musvg_text_emitters[ti->type];
@@ -2376,7 +2376,7 @@ void musvg_emit_binary_begin(musvg_parser *p, musvg_buf *buf, musvg_node *node, 
 {
     vf_buf_write_i8(buf, node->type);
     for (int i = 0; i < node->attr_count; i++) {
-        musvg_offset *offset = offsets_get(p, node->attr_offset + i);
+        musvg_offset *offset = attr_offsets_get(p, node->attr_offset + i);
         int attr = offset->attr_type;
         const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
         musvg_attr_buf_fn fn = musvg_binary_emitters[ti->type];
@@ -2598,11 +2598,11 @@ musvg_parser* musvg_parser_create()
     path_points_init(p);
     brushes_init(p);
     nodes_init(p);
-    offsets_init(p);
-    storage_init(p);
+    attr_offsets_init(p);
+    attr_storage_init(p);
 
-    storage_alloc(p,1,1);
-    assert(p->storage.offset == 1);
+    attr_storage_alloc(p,1,1);
+    assert(p->attr_storage.offset == 1);
 
     return p;
 }
@@ -2614,8 +2614,8 @@ void musvg_parser_destroy(musvg_parser *p)
     path_points_destroy(p);
     brushes_destroy(p);
     nodes_destroy(p);
-    offsets_destroy(p);
-    storage_destroy(p);
+    attr_offsets_destroy(p);
+    attr_storage_destroy(p);
     free(p);
 }
 
@@ -2652,10 +2652,10 @@ static void print_summary_totals(musvg_parser *p)
 {
     size_t capacity = nodes_capacity(p) + points_capacity(p) +
         path_ops_capacity(p) + path_points_capacity(p) +
-        offsets_capacity(p) + storage_capacity(p);
+        attr_offsets_capacity(p) + attr_storage_capacity(p);
     size_t size = nodes_size(p) + points_size(p) +
         path_ops_size(p) + path_points_size(p) +
-        offsets_size(p) + storage_size(p);
+        attr_offsets_size(p) + attr_storage_size(p);
     printf("%-15s %5s %10s %10s %10zu %10zu\n",
         "totals", "", "", "", size, capacity);
 }
@@ -2665,8 +2665,8 @@ void musvg_parser_stats(musvg_parser* p)
     print_stats_titles();
     print_stats_lines();
     print_array_stats(&p->nodes, sizeof(musvg_node), "nodes");
-    print_array_stats(&p->offsets, sizeof(musvg_offset), "attr_map");
-    print_storage_stats(&p->storage, "attr_storage");
+    print_array_stats(&p->attr_offsets, sizeof(musvg_offset), "attr_offsets");
+    print_storage_stats(&p->attr_storage, "attr_storage");
     print_array_stats(&p->path_ops, sizeof(musvg_path_op), "path_ops");
     print_array_stats(&p->path_points, sizeof(musvg_points), "path_points");
     print_array_stats(&p->points, sizeof(float), "points");
