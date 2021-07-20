@@ -256,6 +256,24 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define attr_storage_destroy(p) storage_buffer_destroy(&p->attr_storage)
 
 enum { musvg_max_depth = 256 };
+enum { musvg_node_sentinel = -1 };
+
+// SVG parser
+
+struct musvg_offset
+{
+    uint attr_type;
+    uint attr_storage;
+};
+
+struct musvg_node
+{
+    uint type;
+    int next;
+    int parent;
+    uint attr_offset;
+    uint attr_count;
+};
 
 struct musvg_parser
 {
@@ -1676,7 +1694,7 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
 
 // SVG attribute storage
 
-static inline int find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
+static inline uint find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
 {
     /* search attribute list backwards as a temporal affinity optimization */
     for (int i = node->attr_count - 1; i >= 0; i--) {
@@ -1688,7 +1706,7 @@ static inline int find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_
     return 0;
 }
 
-static inline ullong alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
+static inline uint alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
 {
     /* allocate aligned storage space */
     size_t type = musvg_type_info_attr[attr].type;
@@ -1719,7 +1737,7 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
      * alloc attr assumes constraint that attributes are written contiguously
      * such as the case when parsing xml or binary, but not random writes.
      */
-    ullong attr_storage = find_attr(p, node, attr);
+    uint attr_storage = find_attr(p, node, attr);
     if (attr_storage == 0) {
         attr_storage = alloc_attr(p, node, attr);
     }

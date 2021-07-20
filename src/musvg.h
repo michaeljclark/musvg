@@ -394,25 +394,6 @@ struct musvg_typeinfo_enum
     parse_enum_fn parse;
 };
 
-// SVG node
-
-enum { musvg_node_sentinel = -1 };
-
-struct musvg_offset
-{
-    ullong attr_type : 8;
-    ullong attr_storage : 56;
-};
-
-struct musvg_node
-{
-    uint type;
-    int next;
-    int parent;
-    uint attr_offset;
-    uint attr_count;
-};
-
 // SVG named color
 
 struct musvg_named_color
