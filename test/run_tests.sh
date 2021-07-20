@@ -4,7 +4,7 @@ test -d test/output || mkdir test/output
 
 ./build/test_vfbuf
 
-for name in tiger path; do
+for name in tiger path polyline gradient-href gradient-linear gradient-radial; do
 	./build/musvgreader --input-format xml          --output-format text        \
 		--input-file test/input/${name}.svg         --output-file test/output/${name}-1.text
 
