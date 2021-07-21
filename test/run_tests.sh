@@ -7,7 +7,8 @@ in=test/input
 out=test/output
 test -d ${out} || mkdir ${out}
 
-for name in tiger path polyline gradient-href gradient-linear gradient-radial;
+for name in tiger path ellipse circle line rect polygon polyline \
+	    gradient-href gradient-linear gradient-radial;
 do
   ${musvgtool} -i xml                    -o text                       \
                -if ${in}/${name}.svg     -of ${out}/${name}.text

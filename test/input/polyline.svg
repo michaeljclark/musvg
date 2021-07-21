@@ -7,7 +7,7 @@
 
   <!-- Show outline of canvas using 'rect' element -->
   <rect x="1" y="1" width="1198" height="398"
-        fill="none" stroke="blue" stroke-width="2" />
+        fill="white" stroke="black" stroke-width="2" />
 
   <polyline fill="none" stroke="blue" stroke-width="10" 
             points="50,375

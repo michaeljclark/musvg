@@ -8,12 +8,11 @@
      id="defs863" />
   <g
      id="layer1">
-    <ellipse
+    <circle
        style="opacity:1;fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
        id="path1441"
        cx="105"
        cy="105"
-       rx="54"
-       ry="27" />
+       r="54.726524" />
   </g>
 </svg>
