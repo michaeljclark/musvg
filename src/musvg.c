@@ -438,68 +438,58 @@ static inline uint musvg_parse_opcode(char c)
 }
 
 static const char * musvg_brush_names[] = {
-    [musvg_brush_default]         = "default",
     [musvg_brush_color]           = "color",
     [musvg_brush_linear_gradient] = "linearGradient",
     [musvg_brush_radial_gradient] = "radialGradient",
 };
 
 static const char * musvg_align_names[] = {
-    [musvg_align_default] = "default",
-    [musvg_align_none] = "none",
     [musvg_align_min] = "Min",
     [musvg_align_mid] = "Mid",
     [musvg_align_max] = "Max",
+    [musvg_align_none] = "none",
 };
 
 static const char * musvg_crop_names[] = {
-    [musvg_crop_default] = "default",
-    [musvg_crop_none] = "none",
     [musvg_crop_meet] = "meet",
     [musvg_crop_slice] = "slice",
+    [musvg_crop_none] = "none",
 };
 
 static const char * musvg_gradient_spread_names[] = {
-    [musvg_gradient_spread_default] = "default",
     [musvg_gradient_spread_pad]     = "pad",
     [musvg_gradient_spread_reflect] = "reflect",
     [musvg_gradient_spread_repeat]  = "repeat",
 };
 
 static const char * musvg_gradient_unit_names[] = {
-    [musvg_gradient_unit_default] = "default",
     [musvg_gradient_unit_user]    = "userSpaceOnUse",
     [musvg_gradient_unit_obb]     = "objectBoundingBox",
 };
 
 static const char * musvg_linecap_names[] = {
-    [musvg_linecap_default] = "default",
     [musvg_linecap_butt]    = "butt",
     [musvg_linecap_round]   = "round",
     [musvg_linecap_square]  = "square",
 };
 
 static const char * musvg_linejoin_names[] = {
-    [musvg_linejoin_default] = "default",
     [musvg_linejoin_miter]   = "miter",
     [musvg_linejoin_round]   = "round",
     [musvg_linejoin_bevel]   = "bevel",
 };
 
 static const char * musvg_fillrule_names[] = {
-    [musvg_fillrule_default] = "default",
     [musvg_fillrule_nonzero] = "nonzero",
     [musvg_fillrule_evenodd] = "evenodd",
 };
 
 static const char * musvg_display_names[] = {
-    [musvg_display_default] = "default",
     [musvg_display_none]    = "none",
     [musvg_display_inline]  = "inline",
 };
 
 static const char * musvg_unit_names[] = {
-    [musvg_unit_default] = "default",
     [musvg_unit_user]    = "user",
     [musvg_unit_px]      = "px",
     [musvg_unit_pt]      = "pt",
@@ -570,12 +560,12 @@ static const musvg_typeinfo_attr musvg_type_info_attr[] =
 
 static const musvg_typeinfo_enum musvg_type_info_enum[] =
 {
-    [musvg_attr_stroke_linejoin]    = { musvg_linejoin_names,        musvg_linejoin_LIMIT,        musvg_linejoin_DEFAULT,       musvg_parse_linejoin },
-    [musvg_attr_stroke_linecap]     = { musvg_linecap_names,         musvg_linecap_LIMIT,         musvg_linecap_DEFAULT,        musvg_parse_linecap  },
-    [musvg_attr_fill_rule]          = { musvg_fillrule_names,        musvg_fillrule_LIMIT,        musvg_fillrule_DEFAULT,       musvg_parse_fillrule },
-    [musvg_attr_display]            = { musvg_display_names,         musvg_display_LIMIT,         musvg_display_DEFAULT,        musvg_parse_display  },
-    [musvg_attr_gradient_spread]    = { musvg_gradient_spread_names, musvg_gradient_spread_LIMIT, musvg_gradient_spread_DEFAULT, musvg_parse_gradient_spread },
-    [musvg_attr_gradient_units]     = { musvg_gradient_unit_names,   musvg_gradient_unit_LIMIT,   musvg_gradient_unit_DEFAULT,   musvg_parse_gradient_units  },
+    [musvg_attr_stroke_linejoin]    = { musvg_linejoin_names,        musvg_linejoin_limit,        musvg_parse_linejoin },
+    [musvg_attr_stroke_linecap]     = { musvg_linecap_names,         musvg_linecap_limit,         musvg_parse_linecap  },
+    [musvg_attr_fill_rule]          = { musvg_fillrule_names,        musvg_fillrule_limit,        musvg_parse_fillrule },
+    [musvg_attr_display]            = { musvg_display_names,         musvg_display_limit,         musvg_parse_display  },
+    [musvg_attr_gradient_spread]    = { musvg_gradient_spread_names, musvg_gradient_spread_limit, musvg_parse_gradient_spread },
+    [musvg_attr_gradient_units]     = { musvg_gradient_unit_names,   musvg_gradient_unit_limit,   musvg_parse_gradient_units  },
 };
 
 typedef struct { size_t size, align; } musvg_type_meta;
@@ -1515,10 +1505,10 @@ musvg_small musvg_parse_aspectratio_align(const char* str, int isx)
 {
     if (strcmp(str, "none") == 0)
         return musvg_align_none;
-    else if (strstr(str, isx ? "xMin" : "yMin") != 0)
-        return musvg_align_min;
     else if (strstr(str, isx ? "xMid" : "yMid") != 0)
         return musvg_align_mid;
+    else if (strstr(str, isx ? "xMin" : "yMin") != 0)
+        return musvg_align_min;
     else if (strstr(str, isx ? "xMax" : "yMax") != 0)
         return musvg_align_max;
     return musvg_align_default;
@@ -1550,14 +1540,15 @@ static musvg_aspectratio musvg_parse_aspectratio(const char* str)
 static int musvg_aspectratio_string(char *buf, size_t buflen, const musvg_aspectratio *ar)
 {
     int len = 0;
-    if (ar->alignX == musvg_align_none || ar->alignY == musvg_align_none || ar->alignType == musvg_crop_none) {
+    if (ar->alignX == musvg_align_none ||
+        ar->alignY == musvg_align_none ||
+        ar->alignType == musvg_crop_none) {
         len += snprintf(buf+len, buflen-len, "none");
     } else {
-        int alignX = ar->alignX == musvg_align_default ? musvg_align_DEFAULT : ar->alignX;
-        int alignY = ar->alignY == musvg_align_default ? musvg_align_DEFAULT : ar->alignY;
-        int alignType = ar->alignType == musvg_crop_default ? musvg_crop_DEFAULT : ar->alignType;
         len += snprintf(buf+len, buflen-len, "x%sy%s %s",
-            musvg_align_names[alignX], musvg_align_names[alignY], musvg_crop_names[alignType]);
+            musvg_align_names[ar->alignX],
+            musvg_align_names[ar->alignY],
+            musvg_crop_names[ar->alignType]);
     }
     return len;
 }
@@ -1787,6 +1778,18 @@ static inline uint find_attr(musvg_parser *p, const musvg_node *node, musvg_attr
     return 0;
 }
 
+static uint find_attr_parent(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
+{
+    /* find node attribute, if not found retry with parent */
+    uint attr_storage;
+    while ((attr_storage = find_attr(p, node, attr)) == 0) {
+        uint parent_idx = musvg_node_parent(p, node);
+        if (parent_idx == musvg_node_sentinel) break;
+        node = nodes_get(p, parent_idx);
+    }
+    return attr_storage;
+}
+
 static inline uint alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
 {
     /* allocate aligned storage space */
@@ -1821,6 +1824,15 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
     uint attr_storage = find_attr(p, node, attr);
     if (attr_storage == 0) {
         attr_storage = alloc_attr(p, node, attr);
+    }
+    return (musvg_small*)attr_storage_get(p, attr_storage);
+}
+
+static inline musvg_small* attr_pointer_parent(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
+{
+    uint attr_storage = find_attr_parent(p, node, attr);
+    if (attr_storage == 0) {
+        return NULL;
     }
     return (musvg_small*)attr_storage_get(p, attr_storage);
 }
@@ -2194,7 +2206,7 @@ int musvg_write_text_length(musvg_parser *p, musvg_buf *buf, musvg_node *node, m
     const musvg_length length = *(musvg_length*)attr_pointer(p, node, attr);
     char str[64];
     int len = snprintf(str, sizeof(str), "%.8g", length.value);
-    if (length.units != musvg_unit_DEFAULT) {
+    if (length.units != musvg_unit_default) {
         len += snprintf(str + len, sizeof(str) - len, "%s",
             musvg_unit_names[length.units]);
     }
@@ -2661,7 +2673,7 @@ int musvg_parse_binary(musvg_parser *p, musvg_buf *buf)
 
     for (;;) {
         if (!vf_buf_read_i8(buf, &element)) return 0;
-        element = element % (musvg_element_LIMIT + 1);
+        element = element % (musvg_element_limit + 1);
         if (element == musvg_element_none) {
             musvg_stack_pop(p);
             continue;
@@ -2672,7 +2684,7 @@ int musvg_parse_binary(musvg_parser *p, musvg_buf *buf)
 
         for (;;) {
             if (!vf_buf_read_i8(buf, &attr)) return -1;
-            attr = attr % (musvg_attr_LIMIT + 1);
+            attr = attr % (musvg_attr_limit + 1);
             if (attr == musvg_attr_none) break;
 
             const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;

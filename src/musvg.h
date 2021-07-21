@@ -104,7 +104,7 @@ enum musvg_element_t {
     musvg_element_lgradient,
     musvg_element_rgradient,
     musvg_element_stop,
-    musvg_element_LIMIT = musvg_element_stop
+    musvg_element_limit = musvg_element_stop
 };
 enum musvg_attr_t {
     musvg_attr_none,
@@ -150,7 +150,7 @@ enum musvg_attr_t {
     musvg_attr_gradient_transform,
     musvg_attr_gradient_spread,
     musvg_attr_gradient_href,
-    musvg_attr_LIMIT = musvg_attr_gradient_href
+    musvg_attr_limit = musvg_attr_gradient_href
 };
 /*
  * SVG path instructions from the 'd' attribute:
@@ -198,39 +198,31 @@ enum musvg_path_opcode_t {
     musvg_path_curveto_quadratic_smooth_rel,
 };
 enum musvg_brush_t {
-    musvg_brush_default,
     musvg_brush_color,
     musvg_brush_linear_gradient,
     musvg_brush_radial_gradient
 };
 enum musvg_linecap_t {
-    musvg_linecap_default,
     musvg_linecap_butt,
     musvg_linecap_round,
     musvg_linecap_square,
-
-    musvg_linecap_LIMIT = musvg_linecap_square,
-    musvg_linecap_DEFAULT = musvg_linecap_butt
+    musvg_linecap_limit = musvg_linecap_square,
+    musvg_linecap_default = musvg_linecap_butt
 };
 enum musvg_linejoin_t {
-    musvg_linejoin_default,
     musvg_linejoin_miter,
     musvg_linejoin_round,
     musvg_linejoin_bevel,
-
-    musvg_linejoin_LIMIT = musvg_linejoin_bevel,
-    musvg_linejoin_DEFAULT = musvg_linejoin_miter
+    musvg_linejoin_limit = musvg_linejoin_bevel,
+    musvg_linejoin_default = musvg_linejoin_miter
 };
 enum musvg_fillrule_t {
-    musvg_fillrule_default,
     musvg_fillrule_nonzero,
     musvg_fillrule_evenodd,
-
-    musvg_fillrule_LIMIT = musvg_fillrule_evenodd,
-    musvg_fillrule_DEFAULT = musvg_fillrule_nonzero
+    musvg_fillrule_limit = musvg_fillrule_evenodd,
+    musvg_fillrule_default = musvg_fillrule_nonzero
 };
 enum musvg_unit_t {
-    musvg_unit_default,
     musvg_unit_user,
     musvg_unit_px,
     musvg_unit_pt,
@@ -241,32 +233,27 @@ enum musvg_unit_t {
     musvg_unit_percent,
     musvg_unit_em,
     musvg_unit_ex,
-
-    musvg_unit_LIMIT = musvg_unit_ex,
-    musvg_unit_DEFAULT = musvg_unit_user
+    musvg_unit_limit = musvg_unit_ex,
+    musvg_unit_default = musvg_unit_user
 };
 enum musvg_display_t {
-    musvg_display_default,
     musvg_display_inline,
     musvg_display_none,
-
-    musvg_display_LIMIT = musvg_display_none,
-    musvg_display_DEFAULT = musvg_display_inline
+    musvg_display_limit = musvg_display_none,
+    musvg_display_default = musvg_display_inline
 };
 enum musvg_align_t {
-    musvg_align_default,
-    musvg_align_none,
-    musvg_align_min,
     musvg_align_mid,
+    musvg_align_min,
     musvg_align_max,
-    musvg_align_DEFAULT = musvg_align_mid
+    musvg_align_none,
+    musvg_align_default = musvg_align_mid
 };
 enum musvg_crop_t {
-    musvg_crop_default,
-    musvg_crop_none,
     musvg_crop_meet,
     musvg_crop_slice,
-    musvg_crop_DEFAULT = musvg_crop_meet
+    musvg_crop_none,
+    musvg_crop_default = musvg_crop_meet
 };
 enum musvg_color_type_t {
     musvg_color_type_none,
@@ -274,19 +261,17 @@ enum musvg_color_type_t {
     musvg_color_type_url,
 };
 enum musvg_gradient_spread_t {
-    musvg_gradient_spread_default,
     musvg_gradient_spread_pad,
     musvg_gradient_spread_reflect,
     musvg_gradient_spread_repeat,
-    musvg_gradient_spread_LIMIT = musvg_gradient_spread_repeat,
-    musvg_gradient_spread_DEFAULT = musvg_gradient_spread_pad
+    musvg_gradient_spread_limit = musvg_gradient_spread_repeat,
+    musvg_gradient_spread_default = musvg_gradient_spread_pad
 };
 enum musvg_gradient_unit_t {
-    musvg_gradient_unit_default,
     musvg_gradient_unit_user,
     musvg_gradient_unit_obb,
-    musvg_gradient_unit_LIMIT = musvg_gradient_unit_obb,
-    musvg_gradient_unit_DEFAULT = musvg_gradient_unit_user
+    musvg_gradient_unit_limit = musvg_gradient_unit_obb,
+    musvg_gradient_unit_default = musvg_gradient_unit_user
 };
 enum musvg_transform_t {
     musvg_transform_matrix,
@@ -399,7 +384,6 @@ struct musvg_typeinfo_enum
 {
     const char ** names;
     size_t limit;
-    size_t defalt;
     parse_enum_fn parse;
 };
 
