@@ -108,6 +108,8 @@ enum musvg_element_t {
 };
 enum musvg_attr_t {
     musvg_attr_none,
+    musvg_attr_xmlns,
+    musvg_attr_xmlns_xlink,
     musvg_attr_display,
     musvg_attr_fill,
     musvg_attr_fill_opacity,

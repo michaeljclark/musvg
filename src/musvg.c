@@ -326,6 +326,8 @@ static const char * musvg_element_names[] = {
 };
 
 static const char * musvg_attribute_names[] = {
+    [musvg_attr_xmlns]                     = "xmlns",
+    [musvg_attr_xmlns_xlink]               = "xmlns:xlink",
     [musvg_attr_display]                   = "display",
     [musvg_attr_fill]                      = "fill",
     [musvg_attr_fill_opacity]              = "fill-opacity",
@@ -514,6 +516,8 @@ static const char * musvg_transform_names[] = {
 static const musvg_typeinfo_attr musvg_type_info_attr[] =
 {
     /* common attributes */
+    [musvg_attr_xmlns]              = { musvg_type_id },
+    [musvg_attr_xmlns_xlink]        = { musvg_type_id },
     [musvg_attr_id]                 = { musvg_type_id },
     [musvg_attr_transform]          = { musvg_type_transform },
     [musvg_attr_fill]               = { musvg_type_color },
