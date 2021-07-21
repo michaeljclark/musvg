@@ -1863,13 +1863,20 @@ int musvg_read_binary_enum(musvg_parser *p, musvg_buf *buf, musvg_node *node, mu
 
 int musvg_read_binary_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
-    char id_str[128];
-    musvg_id *id = (musvg_id*)attr_pointer(p, node, attr);
+    musvg_id *id;
+    char id_str[128] = { 0 };
     ullong id_len = 0;
+    uint name;
     assert(!leb_u64_read(buf, &id_len));
     assert(id_len < sizeof(id_str));
     assert(vf_buf_read_bytes(buf, id_str, id_len) == id_len);
-    id->name = alloc_string(p, id_str, id_len);
+    name = alloc_string(p, id_str, id_len);
+    /*
+     * fetching attr pointer after alloc_string because it can move.
+     * a separate string table would improve the usability a little.
+     */
+    id = (musvg_id*)attr_pointer(p, node, attr);
+    id->name = name;
     return 0;
 }
 
@@ -1888,12 +1895,19 @@ int musvg_read_binary_color(musvg_parser *p, musvg_buf *buf, musvg_node *node, m
     if (color->type == musvg_color_type_rgba) {
         assert(vf_buf_read_i32(buf, (int32_t*)&color->color));
     } else if (color->type == musvg_color_type_url) {
+        uint url;
         ullong url_len = 0;
         char url_str[128];
         assert(!leb_u64_read(buf, &url_len));
         assert(url_len < sizeof(url_str));
         assert(vf_buf_read_bytes(buf, url_str, url_len) == url_len);
-        color->url = alloc_string(p, url_str, url_len);
+        url = alloc_string(p, url_str, url_len);
+        /*
+         * revalidate attr pointer after alloc_string because it can move.
+         * a separate string table would improve the usability a little.
+         */
+        color = (musvg_color*)attr_pointer(p, node, attr);
+        color->url = url;
     }
     return 0;
 }
