@@ -1719,6 +1719,46 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
     return node;
 }
 
+static uint musvg_node_index(musvg_parser *p, musvg_node *node)
+{
+    return (uint)(node - nodes_get(p, 0));
+}
+
+static uint musvg_node_parent(musvg_parser *p, musvg_node *node)
+{
+    /*
+     * search backwards to find parent. parent is first node with 'next'
+     * greater than our index or parent is one node before earliest peer.
+     */
+
+    musvg_node *nodes = nodes_get(p, 0);
+    uint our_idx = (uint)(node - nodes);
+    uint i = our_idx;
+    uint peer_idx = our_idx;
+    uint parent_idx = musvg_node_sentinel;
+
+    while (i-- > 0) {
+        uint next = nodes[i].next;
+        if (next == musvg_node_sentinel) { /* skip peers child nodes */
+
+        } else if (next > our_idx) { /* find first node pointing past us. */
+            parent_idx = i;
+            break;
+        } else if (next == peer_idx) { /* otherwise track earliest peer. */
+            peer_idx = i;
+        }
+    }
+
+    /*
+     * if no node points past us, parent is one node before earliest peer.
+     */
+    if (parent_idx == musvg_node_sentinel) {
+        return peer_idx - 1;
+    } else {
+        return parent_idx;
+    }
+}
+
 // SVG attribute storage
 
 static inline uint alloc_string(musvg_parser *p, const char *str, size_t len)
