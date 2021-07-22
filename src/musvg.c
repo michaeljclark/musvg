@@ -255,6 +255,16 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define attr_storage_alloc(p,size,align) storage_buffer_alloc(&p->attr_storage,size,align)
 #define attr_storage_destroy(p) storage_buffer_destroy(&p->attr_storage)
 
+#define strings_init(p) storage_buffer_init(&p->strings,16)
+#define strings_data(p) storage_buffer_data(&p->strings)
+#define strings_size(p) storage_buffer_size(&p->strings)
+#define strings_capacity(p) storage_buffer_capacity(&p->strings)
+#define strings_get(p,idx) ((char*)storage_buffer_get(&p->strings,idx))
+#define strings_resize(p,size) storage_buffer_resize(&p->strings,size)
+#define strings_alloc(p,size,align) storage_buffer_alloc(&p->strings,size,align)
+#define strings_destroy(p) storage_buffer_destroy(&p->strings)
+
+
 enum { musvg_max_depth = 256 };
 enum { musvg_node_sentinel = -1 };
 
@@ -283,6 +293,7 @@ struct musvg_parser
     array_buffer nodes;
     array_buffer attr_offsets;
     storage_buffer attr_storage;
+    storage_buffer strings;
 
     uint node_stack[musvg_max_depth];
     uint node_depth;
@@ -1758,8 +1769,8 @@ static uint musvg_node_parent(musvg_parser *p, musvg_node *node)
 
 static inline uint alloc_string(musvg_parser *p, const char *str, size_t len)
 {
-    uint storage = attr_storage_alloc(p, len + 1, 1);
-    char *buffer = (char*)attr_storage_get(p, storage);
+    uint storage = strings_alloc(p, len + 1, 1);
+    char *buffer = (char*)strings_get(p, storage);
     memcpy(buffer, str, len);
     buffer[len] = '\0';
     return storage;
@@ -1767,7 +1778,7 @@ static inline uint alloc_string(musvg_parser *p, const char *str, size_t len)
 
 static inline char* fetch_string(musvg_parser *p, uint storage)
 {
-    return (char*)attr_storage_get(p, storage);
+    return (char*)strings_get(p, storage);
 }
 
 static inline uint find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
@@ -1824,6 +1835,10 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
      *
      * alloc attr assumes constraint that attributes are written contiguously
      * such as the case when parsing xml or binary, but not random writes.
+     *
+     * note: fetching multiple attribute pointers in one scope is not
+     * supported because an allocation can cause a previously fetched pointer
+     * to be invalidated due to a call to realloc in alloc_attr.
      */
     uint attr_storage = find_attr(p, node, attr);
     if (attr_storage == 0) {
@@ -1863,20 +1878,13 @@ int musvg_read_binary_enum(musvg_parser *p, musvg_buf *buf, musvg_node *node, mu
 
 int musvg_read_binary_id(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
-    musvg_id *id;
+    musvg_id *id = (musvg_id*)attr_pointer(p, node, attr);
     char id_str[128] = { 0 };
     ullong id_len = 0;
-    uint name;
     assert(!leb_u64_read(buf, &id_len));
     assert(id_len < sizeof(id_str));
     assert(vf_buf_read_bytes(buf, id_str, id_len) == id_len);
-    name = alloc_string(p, id_str, id_len);
-    /*
-     * fetching attr pointer after alloc_string because it can move.
-     * a separate string table would improve the usability a little.
-     */
-    id = (musvg_id*)attr_pointer(p, node, attr);
-    id->name = name;
+    id->name = alloc_string(p, id_str, id_len);
     return 0;
 }
 
@@ -1895,19 +1903,12 @@ int musvg_read_binary_color(musvg_parser *p, musvg_buf *buf, musvg_node *node, m
     if (color->type == musvg_color_type_rgba) {
         assert(vf_buf_read_i32(buf, (int32_t*)&color->color));
     } else if (color->type == musvg_color_type_url) {
-        uint url;
         ullong url_len = 0;
         char url_str[128];
         assert(!leb_u64_read(buf, &url_len));
         assert(url_len < sizeof(url_str));
         assert(vf_buf_read_bytes(buf, url_str, url_len) == url_len);
-        url = alloc_string(p, url_str, url_len);
-        /*
-         * revalidate attr pointer after alloc_string because it can move.
-         * a separate string table would improve the usability a little.
-         */
-        color = (musvg_color*)attr_pointer(p, node, attr);
-        color->url = url;
+        color->url = alloc_string(p, url_str, url_len);
     }
     return 0;
 }
@@ -2780,9 +2781,13 @@ musvg_parser* musvg_parser_create()
     nodes_init(p);
     attr_offsets_init(p);
     attr_storage_init(p);
+    strings_init(p);
 
     attr_storage_alloc(p,1,1);
+    strings_alloc(p,1,1);
+
     assert(p->attr_storage.offset == 1);
+    assert(p->strings.offset == 1);
 
     return p;
 }
@@ -2796,6 +2801,7 @@ void musvg_parser_destroy(musvg_parser *p)
     nodes_destroy(p);
     attr_offsets_destroy(p);
     attr_storage_destroy(p);
+    strings_destroy(p);
     free(p);
 }
 
@@ -2850,6 +2856,7 @@ void musvg_parser_stats(musvg_parser* p)
     print_array_stats(&p->path_ops, sizeof(musvg_path_op), "path_ops");
     print_array_stats(&p->path_points, sizeof(musvg_points), "path_points");
     print_array_stats(&p->points, sizeof(float), "points");
+    print_storage_stats(&p->strings, "strings");
     //print_array_stats(&p->brushes, sizeof(musvg_brush), "brushes");
     print_stats_lines();
     print_summary_totals(p);

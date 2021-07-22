@@ -37,14 +37,15 @@ example shows conversion of a small file from XML to binary using the
 
 name             size      count   capacity    used(B)   alloc(B)
 --------------- ----- ---------- ---------- ---------- ----------
-nodes              16          4         16         64        256
-attr_offsets        8         11         16         88        128
-attr_storage        1        324        512        324        512
+nodes              16          3         16         48        256
+attr_offsets        8         10         16         80        128
+attr_storage        1         80        128         80        128
 path_ops            1         11         16         11         16
 path_points         8         11         16         88        128
 points              4         20         32         80        128
+strings             1         21         32         21         32
 --------------- ----- ---------- ---------- ---------- ----------
-totals                                             655       1168
+totals                                             387        784
 ```
 
 #### musvgtool test/input/tiger.svg statistics
@@ -58,13 +59,14 @@ example shows conversion of a larger file from XML to binary using the
 name             size      count   capacity    used(B)   alloc(B)
 --------------- ----- ---------- ---------- ---------- ----------
 nodes              16        482        512       7712       8192
-attr_offsets        8        621       1024       4968       8192
-attr_storage        1       5000       8192       5000       8192
+attr_offsets        8        623       1024       4984       8192
+attr_storage        1       5008       8192       5008       8192
 path_ops            1       2510       4096       2510       4096
 path_points         8       2510       4096      20080      32768
 points              4      12174      16384      48696      65536
+strings             1         57         64         57         64
 --------------- ----- ---------- ---------- ---------- ----------
-totals                                           88966     126976
+totals                                           88990     126976
 ```
 
 
