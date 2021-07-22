@@ -279,7 +279,7 @@ struct musvg_offset
 struct musvg_node
 {
     uint type;
-    int next;
+    uint next;
     uint attr_offset;
     uint attr_count;
 };
@@ -1701,12 +1701,12 @@ static void musvg_stack_push(musvg_parser *p)
 {
     if (p->node_depth == musvg_max_depth) abort();
     int depth = p->node_depth++;
-    int previous = p->node_stack[depth];
-    int current = nodes_count(p) - 1;
-    if (previous != musvg_node_sentinel) {
-        nodes_get(p, previous)->next = current;
+    int previous_idx = p->node_stack[depth];
+    int current_idx = nodes_count(p) - 1;
+    if (previous_idx != musvg_node_sentinel) {
+        nodes_get(p, previous_idx)->next = current_idx - previous_idx;
     }
-    p->node_stack[depth] = current;
+    p->node_stack[depth] = current_idx;
 }
 
 static void musvg_stack_pop(musvg_parser *p)
@@ -1720,7 +1720,7 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
 {
     musvg_node *node = (musvg_node*)nodes_alloc(p, 1);
     node->type = type;
-    node->next = musvg_node_sentinel;
+    node->next = 0;
     node->attr_offset = node->attr_count = 0;
     return node;
 }
@@ -1734,32 +1734,32 @@ static uint musvg_node_parent(musvg_parser *p, musvg_node *node)
 {
     /*
      * search backwards to find parent. parent is first node with 'next'
-     * greater than our index or parent is one node before earliest peer.
+     * greater than our index or it is one node before earliest sibling.
      */
 
     musvg_node *nodes = nodes_get(p, 0);
     uint our_idx = (uint)(node - nodes);
     uint i = our_idx;
-    uint peer_idx = our_idx;
+    uint sibling_idx = our_idx;
     uint parent_idx = musvg_node_sentinel;
 
     while (i-- > 0) {
-        uint next = nodes[i].next;
-        if (next == musvg_node_sentinel) { /* skip peers child nodes */
+        uint next_idx = i + nodes[i].next;
+        if (next_idx == i) {          /* skip previous sibling's child nodes */
 
-        } else if (next > our_idx) { /* find first node pointing past us. */
+        } else if (next_idx > our_idx) {     /* first node pointing past us. */
             parent_idx = i;
             break;
-        } else if (next == peer_idx) { /* otherwise track earliest peer. */
-            peer_idx = i;
+        } else if (next_idx == sibling_idx) {     /* track earliest sibling. */
+            sibling_idx = i;
         }
     }
 
     /*
-     * if no node points past us, parent is one node before earliest peer.
+     * if no node points past us, parent is one node before earliest sibling.
      */
     if (parent_idx == musvg_node_sentinel) {
-        return peer_idx - 1;
+        return sibling_idx - 1;
     } else {
         return parent_idx;
     }
@@ -2544,30 +2544,31 @@ void musvg_emit_binary_end(musvg_parser *p, musvg_buf *buf, musvg_node *node, ui
 
 typedef void (*musvg_node_fn)(musvg_parser *p, musvg_buf *buf, musvg_node *node, uint depth, uint close);
 
-void musvg_emit_recurse(musvg_parser* p, musvg_buf *buf, uint i, uint j, uint d,
+void musvg_emit_recurse(musvg_parser* p, musvg_buf *buf, musvg_node *node, musvg_node *end, uint d,
     musvg_node_fn begin_fn, musvg_node_fn end_fn)
 {
-    while (i != musvg_node_sentinel && i < nodes_count(p))
-    {
-        musvg_node *node = nodes_get(p, i);
-        int k = node->next != musvg_node_sentinel ? node->next : j;
-        int has_depth = i + 1 < k;
-        if (begin_fn) begin_fn(p, buf, nodes_get(p, i), d, !has_depth);
+    while (node < end) {
+        musvg_node *child = node + 1;
+        musvg_node *sibling = node->next ? node + node->next : end;
+        int has_depth = child != sibling;
+        if (begin_fn) begin_fn(p, buf, node, d, !has_depth);
         if (has_depth) {
-            musvg_emit_recurse(p, buf, i + 1, k, d + 1, begin_fn, end_fn);
+            musvg_emit_recurse(p, buf, child, sibling, d + 1, begin_fn, end_fn);
         }
-        if (end_fn) end_fn(p, buf, nodes_get(p, i), d, !has_depth);
-        i = node->next;
+        if (end_fn) end_fn(p, buf, node, d, !has_depth);
+        node = sibling;
     }
 }
 
-void musvg_emit(musvg_parser* p, musvg_buf *buf, musvg_node_fn begin, musvg_node_fn end)
+void musvg_emit(musvg_parser* p, musvg_buf *buf, musvg_node_fn begin_fn, musvg_node_fn end_fn)
 {
     /*
      * currently we construct the entire output in memory, however, it will be
      * possible to use the buffer size check callback to incrementally flush.
      */
-    musvg_emit_recurse(p, buf, 0, nodes_count(p), 0, begin, end);
+    musvg_node *begin = nodes_get(p, 0);
+    musvg_node *end = begin + nodes_count(p);
+    musvg_emit_recurse(p, buf, begin, end, 0, begin_fn, end_fn);
 }
 
 void musvg_emit_text(musvg_parser* p, musvg_buf *buf)
