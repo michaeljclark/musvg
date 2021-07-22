@@ -1691,16 +1691,10 @@ static musvg_path_d musvg_parse_path_ops(musvg_parser *p, const char *s)
 
 // SVG node stack
 
-static int musvg_stack_top(musvg_parser *p)
-{
-    if (p->node_depth == 0) return musvg_node_sentinel;
-    else return p->node_stack[p->node_depth - 1];
-}
-
 static void musvg_stack_push(musvg_parser *p)
 {
-    if (p->node_depth == musvg_max_depth) abort();
     int depth = p->node_depth++;
+    if (depth == musvg_max_depth) abort();
     int previous_idx = p->node_stack[depth];
     int current_idx = nodes_count(p) - 1;
     if (previous_idx != musvg_node_sentinel) {
