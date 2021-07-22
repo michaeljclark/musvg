@@ -270,18 +270,21 @@ enum { musvg_node_sentinel = -1 };
 
 // SVG parser
 
+typedef struct musvg_offset musvg_offset;
+typedef struct musvg_node musvg_node;
+
 struct musvg_offset
 {
-    uint attr_type;
-    uint attr_storage;
+    ullong attr_type    : 16;
+    ullong attr_storage : 48;
 };
 
 struct musvg_node
 {
-    uint type;
-    uint next;
-    uint attr_offset;
-    uint attr_count;
+    ullong type         : 16;
+    ullong next         : 48;
+    ullong attr_offset  : 48;
+    ullong attr_count   : 16;
 };
 
 struct musvg_parser
@@ -295,7 +298,7 @@ struct musvg_parser
     storage_buffer attr_storage;
     storage_buffer strings;
 
-    uint node_stack[musvg_max_depth];
+    ullong node_stack[musvg_max_depth];
     uint node_depth;
 
     int (*f32_read)(vf_buf *buf, float *value);
@@ -1009,9 +1012,9 @@ static musvg_color musvg_parse_color_rgb(const char* str)
     }
 }
 
-static uint alloc_string(musvg_parser *p, const char *str, size_t len);
+static ullong alloc_string(musvg_parser *p, const char *str, size_t len);
 
-static uint musvg_parse_url(musvg_parser *p, const char* str)
+static ullong musvg_parse_url(musvg_parser *p, const char* str)
 {
     char buf[128];
     int len = 0;
@@ -1693,11 +1696,11 @@ static musvg_path_d musvg_parse_path_ops(musvg_parser *p, const char *s)
 
 static void musvg_stack_push(musvg_parser *p)
 {
-    int depth = p->node_depth++;
+    uint depth = p->node_depth++;
     if (depth == musvg_max_depth) abort();
-    int previous_idx = p->node_stack[depth];
-    int current_idx = nodes_count(p) - 1;
-    if (previous_idx != musvg_node_sentinel) {
+    llong previous_idx = p->node_stack[depth];
+    llong current_idx = nodes_count(p) - 1;
+    if (previous_idx != (llong)musvg_node_sentinel) {
         nodes_get(p, previous_idx)->next = current_idx - previous_idx;
     }
     p->node_stack[depth] = current_idx;
@@ -1706,8 +1709,8 @@ static void musvg_stack_push(musvg_parser *p)
 static void musvg_stack_pop(musvg_parser *p)
 {
     if (p->node_depth == 0) abort();
-    int depth = p->node_depth--;
-    p->node_stack[depth] = musvg_node_sentinel;
+    uint depth = p->node_depth--;
+    p->node_stack[depth] = (llong)musvg_node_sentinel;
 }
 
 static musvg_node* musvg_node_add(musvg_parser *p, uint type)
@@ -1719,12 +1722,12 @@ static musvg_node* musvg_node_add(musvg_parser *p, uint type)
     return node;
 }
 
-static uint musvg_node_index(musvg_parser *p, musvg_node *node)
+static ullong musvg_node_index(musvg_parser *p, musvg_node *node)
 {
-    return (uint)(node - nodes_get(p, 0));
+    return (ullong)(node - nodes_get(p, 0));
 }
 
-static uint musvg_node_parent(musvg_parser *p, musvg_node *node)
+static ullong musvg_node_parent(musvg_parser *p, musvg_node *node)
 {
     /*
      * search backwards to find parent. parent is first node with 'next'
@@ -1732,13 +1735,13 @@ static uint musvg_node_parent(musvg_parser *p, musvg_node *node)
      */
 
     musvg_node *nodes = nodes_get(p, 0);
-    uint our_idx = (uint)(node - nodes);
-    uint i = our_idx;
-    uint sibling_idx = our_idx;
-    uint parent_idx = musvg_node_sentinel;
+    ullong our_idx = (ullong)(node - nodes);
+    ullong i = our_idx;
+    ullong sibling_idx = our_idx;
+    ullong parent_idx = (llong)musvg_node_sentinel;
 
     while (i-- > 0) {
-        uint next_idx = i + nodes[i].next;
+        ullong next_idx = i + nodes[i].next;
         if (next_idx == i) {          /* skip previous sibling's child nodes */
 
         } else if (next_idx > our_idx) {     /* first node pointing past us. */
@@ -1752,7 +1755,7 @@ static uint musvg_node_parent(musvg_parser *p, musvg_node *node)
     /*
      * if no node points past us, parent is one node before earliest sibling.
      */
-    if (parent_idx == musvg_node_sentinel) {
+    if (parent_idx == (llong)musvg_node_sentinel) {
         return sibling_idx - 1;
     } else {
         return parent_idx;
@@ -1761,21 +1764,21 @@ static uint musvg_node_parent(musvg_parser *p, musvg_node *node)
 
 // SVG attribute storage
 
-static inline uint alloc_string(musvg_parser *p, const char *str, size_t len)
+static inline ullong alloc_string(musvg_parser *p, const char *str, size_t len)
 {
-    uint storage = strings_alloc(p, len + 1, 1);
+    ullong storage = strings_alloc(p, len + 1, 1);
     char *buffer = (char*)strings_get(p, storage);
     memcpy(buffer, str, len);
     buffer[len] = '\0';
     return storage;
 }
 
-static inline char* fetch_string(musvg_parser *p, uint storage)
+static inline char* fetch_string(musvg_parser *p, ullong storage)
 {
     return (char*)strings_get(p, storage);
 }
 
-static inline uint find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
+static inline ullong find_attr(musvg_parser *p, const musvg_node *node, musvg_attr_t attr)
 {
     /* search attribute list backwards as a temporal affinity optimization */
     for (int i = node->attr_count - 1; i >= 0; i--) {
@@ -1787,19 +1790,19 @@ static inline uint find_attr(musvg_parser *p, const musvg_node *node, musvg_attr
     return 0;
 }
 
-static uint find_attr_parent(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
+static ullong find_attr_parent(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
 {
     /* find node attribute, if not found retry with parent */
-    uint attr_storage;
+    ullong attr_storage;
     while ((attr_storage = find_attr(p, node, attr)) == 0) {
-        uint parent_idx = musvg_node_parent(p, node);
-        if (parent_idx == musvg_node_sentinel) break;
+        ullong parent_idx = musvg_node_parent(p, node);
+        if (parent_idx == (llong)musvg_node_sentinel) break;
         node = nodes_get(p, parent_idx);
     }
     return attr_storage;
 }
 
-static inline uint alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
+static inline ullong alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
 {
     /* allocate aligned storage space */
     size_t type = musvg_type_info_attr[attr].type;
@@ -1807,7 +1810,7 @@ static inline uint alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr_t at
     size_t align = musvg_type_storage[type].align;
     musvg_offset o = { attr, attr_storage_alloc(p, size, align) };
 
-    uint idx = attr_offsets_add(p,&o);
+    ullong idx = attr_offsets_add(p,&o);
     if (node->attr_count == 0) {
         /* write storage offset to attribute in offsets table */
         node->attr_count++;
@@ -1834,7 +1837,7 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
      * supported because an allocation can cause a previously fetched pointer
      * to be invalidated due to a call to realloc in alloc_attr.
      */
-    uint attr_storage = find_attr(p, node, attr);
+    ullong attr_storage = find_attr(p, node, attr);
     if (attr_storage == 0) {
         attr_storage = alloc_attr(p, node, attr);
     }
@@ -1843,7 +1846,7 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
 
 static inline musvg_small* attr_pointer_parent(musvg_parser *p, musvg_node *node, musvg_attr_t attr)
 {
-    uint attr_storage = find_attr_parent(p, node, attr);
+    ullong attr_storage = find_attr_parent(p, node, attr);
     if (attr_storage == 0) {
         return NULL;
     }
@@ -1893,16 +1896,20 @@ int musvg_read_binary_length(musvg_parser *p, musvg_buf *buf, musvg_node *node, 
 int musvg_read_binary_color(musvg_parser *p, musvg_buf *buf, musvg_node *node, musvg_attr_t attr)
 {
     musvg_color *color = (musvg_color*)attr_pointer(p, node, attr);
-    assert(vf_buf_read_i8(buf, (int8_t*)&color->type));
+    uint8_t type;
+    assert(vf_buf_read_i8(buf, (int8_t*)&type));
+    color->type = type;
     if (color->type == musvg_color_type_rgba) {
-        assert(vf_buf_read_i32(buf, (int32_t*)&color->color));
+        int32_t col;
+        assert(vf_buf_read_i32(buf, &col));
+        color->data = col;
     } else if (color->type == musvg_color_type_url) {
         ullong url_len = 0;
         char url_str[128];
         assert(!leb_u64_read(buf, &url_len));
         assert(url_len < sizeof(url_str));
         assert(vf_buf_read_bytes(buf, url_str, url_len) == url_len);
-        color->url = alloc_string(p, url_str, url_len);
+        color->data = alloc_string(p, url_str, url_len);
     }
     return 0;
 }
@@ -2020,9 +2027,9 @@ int musvg_write_binary_color(musvg_parser *p, musvg_buf *buf, musvg_node *node, 
     const musvg_color color = *(musvg_color*)attr_pointer(p, node, attr);
     assert(vf_buf_write_i8(buf, (int8_t)color.type));
     if (color.type == musvg_color_type_rgba) {
-        assert(vf_buf_write_i32(buf, (int32_t)color.color));
+        assert(vf_buf_write_i32(buf, (int32_t)color.data));
     } else if (color.type == musvg_color_type_url) {
-        const char *url_str = fetch_string(p, color.url);
+        const char *url_str = fetch_string(p, color.data);
         const ullong url_len = strlen(url_str);
         assert(!leb_u64_write(buf, &url_len));
         assert(vf_buf_write_bytes(buf, url_str, url_len) == url_len);
@@ -2233,11 +2240,11 @@ int musvg_write_text_color(musvg_parser *p, musvg_buf *buf, musvg_node *node, mu
     char str[128];
     const musvg_color color = *(musvg_color*)attr_pointer(p, node, attr);
     if (color.type == musvg_color_type_url) {
-        const char* url_str = fetch_string(p, color.url);
+        const char* url_str = fetch_string(p, color.data);
         int len = snprintf(str, sizeof(str), "url(#%s)", url_str);
         assert(vf_buf_write_bytes(buf, str, len) == len);
     } else if (color.type == musvg_color_type_rgba) {
-        int len = snprintf(str, sizeof(str), "#%06x", color.color);
+        int len = snprintf(str, sizeof(str), "#%06x", (int32_t)color.data);
         assert(vf_buf_write_bytes(buf, str, len) == len);
     } else {
         assert(vf_buf_write_bytes(buf, "none", 4) == 4);
@@ -2767,7 +2774,7 @@ musvg_parser* musvg_parser_create()
     memset(p,0,sizeof(musvg_parser));
 
     for (uint i = 0; i < musvg_max_depth; i++)
-        p->node_stack[i] = musvg_node_sentinel;
+        p->node_stack[i] = (llong)musvg_node_sentinel;
 
     points_init(p);
     path_ops_init(p);

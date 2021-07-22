@@ -71,8 +71,6 @@ typedef struct musvg_dasharray musvg_dasharray;
 typedef struct musvg_path_op musvg_path_op;
 typedef struct musvg_typeinfo_attr musvg_typeinfo_attr;
 typedef struct musvg_typeinfo_enum musvg_typeinfo_enum;
-typedef struct musvg_offset musvg_offset;
-typedef struct musvg_node musvg_node;
 typedef struct musvg_gradient_stop musvg_gradient_stop;
 typedef struct musvg_linear_gradient musvg_linear_gradient;
 typedef struct musvg_radial_gradient musvg_radial_gradient;
@@ -305,11 +303,8 @@ struct musvg_length
 
 struct musvg_color
 {
-    musvg_small type;
-    union {
-        uint color;
-        uint url;
-    };
+    ullong type : 16;
+    ullong data : 48;
 };
 
 struct musvg_transform
