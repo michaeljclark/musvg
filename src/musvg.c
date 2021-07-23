@@ -334,23 +334,18 @@ static const char * musvg_element_names[] = {
     [musvg_element_line]                   = "line",
     [musvg_element_polyline]               = "polyline",
     [musvg_element_polygon]                = "polygon",
-    [musvg_element_lgradient]              = "linearGradient",
-    [musvg_element_rgradient]              = "radialGradient",
+    [musvg_element_linear_gradient]        = "linearGradient",
+    [musvg_element_radial_gradient]        = "radialGradient",
     [musvg_element_stop]                   = "stop",
 };
 
 static const char * musvg_attribute_names[] = {
-    [musvg_attr_xmlns]                     = "xmlns",
-    [musvg_attr_xmlns_xlink]               = "xmlns:xlink",
     [musvg_attr_display]                   = "display",
     [musvg_attr_fill]                      = "fill",
     [musvg_attr_fill_opacity]              = "fill-opacity",
     [musvg_attr_fill_rule]                 = "fill-rule",
     [musvg_attr_font_size]                 = "font-size",
     [musvg_attr_id]                        = "id",
-    [musvg_attr_offset]                    = "offset",
-    [musvg_attr_stop_color]                = "stop-color",
-    [musvg_attr_stop_opacity]              = "stop-opacity",
     [musvg_attr_stroke]                    = "stroke",
     [musvg_attr_stroke_width]              = "stroke-width",
     [musvg_attr_stroke_dasharray]          = "stroke-dasharray",
@@ -361,10 +356,8 @@ static const char * musvg_attribute_names[] = {
     [musvg_attr_stroke_miterlimit]         = "stroke-miterlimit",
     [musvg_attr_style]                     = "style",
     [musvg_attr_transform]                 = "transform",
-    [musvg_attr_svg_viewbox]               = "viewBox",
-    [musvg_attr_svg_aspectratio]           = "preserveAspectRatio",
-    [musvg_attr_path_d]                    = "d",
-    [musvg_attr_poly_points]               = "points",
+    [musvg_attr_d]                         = "d",
+    [musvg_attr_points]                    = "points",
     [musvg_attr_width]                     = "width",
     [musvg_attr_height]                    = "height",
     [musvg_attr_x]                         = "x",
@@ -380,10 +373,17 @@ static const char * musvg_attribute_names[] = {
     [musvg_attr_y2]                        = "y2",
     [musvg_attr_fx]                        = "fx",
     [musvg_attr_fy]                        = "fy",
+    [musvg_attr_offset]                    = "offset",
+    [musvg_attr_stop_color]                = "stop-color",
+    [musvg_attr_stop_opacity]              = "stop-opacity",
     [musvg_attr_gradient_units]            = "gradientUnits",
     [musvg_attr_gradient_transform]        = "gradientTransform",
-    [musvg_attr_gradient_spread]           = "spreadMethod",
-    [musvg_attr_gradient_href]             = "xlink:href",
+    [musvg_attr_spread_method]             = "spreadMethod",
+    [musvg_attr_view_box]                  = "viewBox",
+    [musvg_attr_preserve_aspect_ratio]     = "preserveAspectRatio",
+    [musvg_attr_xmlns]                     = "xmlns",
+    [musvg_attr_xmlns_xlink]               = "xmlns:xlink",
+    [musvg_attr_xlink_href]                = "xlink:href",
 };
 
 static const char * musvg_path_op_names[] = {
@@ -472,10 +472,10 @@ static const char * musvg_crop_names[] = {
     [musvg_crop_none] = "none",
 };
 
-static const char * musvg_gradient_spread_names[] = {
-    [musvg_gradient_spread_pad]     = "pad",
-    [musvg_gradient_spread_reflect] = "reflect",
-    [musvg_gradient_spread_repeat]  = "repeat",
+static const char * musvg_spread_method_names[] = {
+    [musvg_spread_method_pad]     = "pad",
+    [musvg_spread_method_reflect] = "reflect",
+    [musvg_spread_method_repeat]  = "repeat",
 };
 
 static const char * musvg_gradient_unit_names[] = {
@@ -530,50 +530,50 @@ static const char * musvg_transform_names[] = {
 static const musvg_typeinfo_attr musvg_type_info_attr[] =
 {
     /* common attributes */
-    [musvg_attr_xmlns]              = { musvg_type_id },
-    [musvg_attr_xmlns_xlink]        = { musvg_type_id },
-    [musvg_attr_id]                 = { musvg_type_id },
-    [musvg_attr_transform]          = { musvg_type_transform },
-    [musvg_attr_fill]               = { musvg_type_color },
-    [musvg_attr_stroke]             = { musvg_type_color },
-    [musvg_attr_fill_opacity]       = { musvg_type_float },
-    [musvg_attr_stroke_opacity]     = { musvg_type_float },
-    [musvg_attr_stroke_miterlimit]  = { musvg_type_float },
-    [musvg_attr_stroke_width]       = { musvg_type_length },
-    [musvg_attr_stroke_dashoffset]  = { musvg_type_length },
-    [musvg_attr_stroke_dasharray]   = { musvg_type_dasharray },
-    [musvg_attr_stroke_linejoin]    = { musvg_type_enum },
-    [musvg_attr_stroke_linecap]     = { musvg_type_enum },
-    [musvg_attr_fill_rule]          = { musvg_type_enum },
-    [musvg_attr_display]            = { musvg_type_enum },
-    [musvg_attr_font_size]          = { musvg_type_length },
-    [musvg_attr_stop_color]         = { musvg_type_color },
-    [musvg_attr_stop_opacity]       = { musvg_type_float },
-    [musvg_attr_offset]             = { musvg_type_length },
+    [musvg_attr_id]                        = { musvg_type_id },
+    [musvg_attr_transform]                 = { musvg_type_transform },
+    [musvg_attr_fill]                      = { musvg_type_color },
+    [musvg_attr_stroke]                    = { musvg_type_color },
+    [musvg_attr_fill_opacity]              = { musvg_type_float },
+    [musvg_attr_stroke_opacity]            = { musvg_type_float },
+    [musvg_attr_stroke_miterlimit]         = { musvg_type_float },
+    [musvg_attr_stroke_width]              = { musvg_type_length },
+    [musvg_attr_stroke_dashoffset]         = { musvg_type_length },
+    [musvg_attr_stroke_dasharray]          = { musvg_type_dasharray },
+    [musvg_attr_stroke_linejoin]           = { musvg_type_enum },
+    [musvg_attr_stroke_linecap]            = { musvg_type_enum },
+    [musvg_attr_fill_rule]                 = { musvg_type_enum },
+    [musvg_attr_display]                   = { musvg_type_enum },
+    [musvg_attr_font_size]                 = { musvg_type_length },
     /* element specific attributes */
-    [musvg_attr_svg_viewbox]        = { musvg_type_viewbox },
-    [musvg_attr_svg_aspectratio]    = { musvg_type_aspectratio },
-    [musvg_attr_path_d]             = { musvg_type_path },
-    [musvg_attr_poly_points]        = { musvg_type_points },
-    [musvg_attr_width]              = { musvg_type_length },
-    [musvg_attr_height]             = { musvg_type_length },
-    [musvg_attr_x]                  = { musvg_type_length },
-    [musvg_attr_y]                  = { musvg_type_length },
-    [musvg_attr_r]                  = { musvg_type_length },
-    [musvg_attr_rx]                 = { musvg_type_length },
-    [musvg_attr_ry]                 = { musvg_type_length },
-    [musvg_attr_cx]                 = { musvg_type_length },
-    [musvg_attr_cy]                 = { musvg_type_length },
-    [musvg_attr_x1]                 = { musvg_type_length },
-    [musvg_attr_y1]                 = { musvg_type_length },
-    [musvg_attr_x2]                 = { musvg_type_length },
-    [musvg_attr_y2]                 = { musvg_type_length },
-    [musvg_attr_fx]                 = { musvg_type_length },
-    [musvg_attr_fy]                 = { musvg_type_length },
-    [musvg_attr_gradient_spread]    = { musvg_type_enum },
-    [musvg_attr_gradient_units]     = { musvg_type_enum },
-    [musvg_attr_gradient_transform] = { musvg_type_transform },
-    [musvg_attr_gradient_href]      = { musvg_type_id },
+    [musvg_attr_d]                         = { musvg_type_path },
+    [musvg_attr_points]                    = { musvg_type_points },
+    [musvg_attr_width]                     = { musvg_type_length },
+    [musvg_attr_height]                    = { musvg_type_length },
+    [musvg_attr_x]                         = { musvg_type_length },
+    [musvg_attr_y]                         = { musvg_type_length },
+    [musvg_attr_r]                         = { musvg_type_length },
+    [musvg_attr_rx]                        = { musvg_type_length },
+    [musvg_attr_ry]                        = { musvg_type_length },
+    [musvg_attr_cx]                        = { musvg_type_length },
+    [musvg_attr_cy]                        = { musvg_type_length },
+    [musvg_attr_x1]                        = { musvg_type_length },
+    [musvg_attr_y1]                        = { musvg_type_length },
+    [musvg_attr_x2]                        = { musvg_type_length },
+    [musvg_attr_y2]                        = { musvg_type_length },
+    [musvg_attr_fx]                        = { musvg_type_length },
+    [musvg_attr_fy]                        = { musvg_type_length },
+    [musvg_attr_offset]                    = { musvg_type_length },
+    [musvg_attr_stop_color]                = { musvg_type_color },
+    [musvg_attr_stop_opacity]              = { musvg_type_float },
+    [musvg_attr_gradient_units]            = { musvg_type_enum },
+    [musvg_attr_gradient_transform]        = { musvg_type_transform },
+    [musvg_attr_spread_method]             = { musvg_type_enum },
+    [musvg_attr_view_box]                  = { musvg_type_viewbox },
+    [musvg_attr_preserve_aspect_ratio]     = { musvg_type_aspectratio },
+    [musvg_attr_xmlns]                     = { musvg_type_id },
+    [musvg_attr_xmlns_xlink]               = { musvg_type_id },
+    [musvg_attr_xlink_href]                = { musvg_type_id },
 };
 
 static const musvg_typeinfo_enum musvg_type_info_enum[] =
@@ -582,7 +582,7 @@ static const musvg_typeinfo_enum musvg_type_info_enum[] =
     [musvg_attr_stroke_linecap]     = { musvg_linecap_names,         musvg_linecap_limit,         musvg_parse_linecap  },
     [musvg_attr_fill_rule]          = { musvg_fillrule_names,        musvg_fillrule_limit,        musvg_parse_fillrule },
     [musvg_attr_display]            = { musvg_display_names,         musvg_display_limit,         musvg_parse_display  },
-    [musvg_attr_gradient_spread]    = { musvg_gradient_spread_names, musvg_gradient_spread_limit, musvg_parse_gradient_spread },
+    [musvg_attr_spread_method]      = { musvg_spread_method_names,   musvg_spread_method_limit,   musvg_parse_spread_method },
     [musvg_attr_gradient_units]     = { musvg_gradient_unit_names,   musvg_gradient_unit_limit,   musvg_parse_gradient_units  },
 };
 
@@ -1499,15 +1499,15 @@ musvg_small musvg_parse_display(const char* str)
     return musvg_display_default;
 }
 
-musvg_small musvg_parse_gradient_spread(const char* str)
+musvg_small musvg_parse_spread_method(const char* str)
 {
     if (strcmp(str, "pad") == 0)
-        return musvg_gradient_spread_pad;
+        return musvg_spread_method_pad;
     else if (strcmp(str, "reflect") == 0)
-        return musvg_gradient_spread_reflect;
+        return musvg_spread_method_reflect;
     else if (strcmp(str, "repeat") == 0)
-        return musvg_gradient_spread_repeat;
-    return musvg_gradient_spread_default;
+        return musvg_spread_method_repeat;
+    return musvg_spread_method_default;
 }
 
 musvg_small musvg_parse_gradient_units(const char* str)

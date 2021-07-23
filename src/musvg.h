@@ -52,7 +52,7 @@ typedef enum musvg_align_t musvg_align_t;
 typedef enum musvg_crop_t musvg_crop_t;
 typedef enum musvg_color_type_t musvg_color_type_t;
 typedef enum musvg_gradient_unit_t musvg_gradient_unit_t;
-typedef enum musvg_gradient_spread_t musvg_gradient_spread_t;
+typedef enum musvg_spread_method_t musvg_spread_method_t;
 typedef enum musvg_element_t musvg_element_t;
 typedef enum musvg_attr_t musvg_attr_t;
 typedef enum musvg_type_t musvg_type_t;
@@ -99,24 +99,19 @@ enum musvg_element_t {
     musvg_element_line,
     musvg_element_polyline,
     musvg_element_polygon,
-    musvg_element_lgradient,
-    musvg_element_rgradient,
+    musvg_element_linear_gradient,
+    musvg_element_radial_gradient,
     musvg_element_stop,
     musvg_element_limit = musvg_element_stop
 };
 enum musvg_attr_t {
     musvg_attr_none,
-    musvg_attr_xmlns,
-    musvg_attr_xmlns_xlink,
     musvg_attr_display,
     musvg_attr_fill,
     musvg_attr_fill_opacity,
     musvg_attr_fill_rule,
     musvg_attr_font_size,
     musvg_attr_id,
-    musvg_attr_offset,
-    musvg_attr_stop_color,
-    musvg_attr_stop_opacity,
     musvg_attr_stroke,
     musvg_attr_stroke_width,
     musvg_attr_stroke_dasharray,
@@ -127,10 +122,8 @@ enum musvg_attr_t {
     musvg_attr_stroke_miterlimit,
     musvg_attr_style,
     musvg_attr_transform,
-    musvg_attr_svg_viewbox,
-    musvg_attr_svg_aspectratio,
-    musvg_attr_path_d,
-    musvg_attr_poly_points,
+    musvg_attr_d,
+    musvg_attr_points,
     musvg_attr_width,
     musvg_attr_height,
     musvg_attr_x,
@@ -146,11 +139,18 @@ enum musvg_attr_t {
     musvg_attr_y2,
     musvg_attr_fx,
     musvg_attr_fy,
+    musvg_attr_offset,
+    musvg_attr_stop_color,
+    musvg_attr_stop_opacity,
     musvg_attr_gradient_units,
     musvg_attr_gradient_transform,
-    musvg_attr_gradient_spread,
-    musvg_attr_gradient_href,
-    musvg_attr_limit = musvg_attr_gradient_href
+    musvg_attr_spread_method,
+    musvg_attr_view_box,
+    musvg_attr_preserve_aspect_ratio,
+    musvg_attr_xmlns,
+    musvg_attr_xmlns_xlink,
+    musvg_attr_xlink_href,
+    musvg_attr_limit = musvg_attr_xlink_href
 };
 /*
  * SVG path instructions from the 'd' attribute:
@@ -260,12 +260,12 @@ enum musvg_color_type_t {
     musvg_color_type_rgba,
     musvg_color_type_url,
 };
-enum musvg_gradient_spread_t {
-    musvg_gradient_spread_pad,
-    musvg_gradient_spread_reflect,
-    musvg_gradient_spread_repeat,
-    musvg_gradient_spread_limit = musvg_gradient_spread_repeat,
-    musvg_gradient_spread_default = musvg_gradient_spread_pad
+enum musvg_spread_method_t {
+    musvg_spread_method_pad,
+    musvg_spread_method_reflect,
+    musvg_spread_method_repeat,
+    musvg_spread_method_limit = musvg_spread_method_repeat,
+    musvg_spread_method_default = musvg_spread_method_pad
 };
 enum musvg_gradient_unit_t {
     musvg_gradient_unit_user,
@@ -414,7 +414,7 @@ musvg_small musvg_parse_linecap(const char* str);
 musvg_small musvg_parse_linejoin(const char* str);
 musvg_small musvg_parse_fillrule(const char* str);
 musvg_small musvg_parse_display(const char* str);
-musvg_small musvg_parse_gradient_spread(const char* str);
+musvg_small musvg_parse_spread_method(const char* str);
 musvg_small musvg_parse_gradient_units(const char* str);
 
 // SVG IO
