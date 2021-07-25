@@ -619,6 +619,20 @@ static const musvg_type_meta musvg_type_storage[] = {
     [musvg_type_points]      = { sizeof(musvg_points),      alignof(musvg_points)      },
 };
 
+static const char* musvg_type_names[] = {
+    [musvg_type_enum]        = "enum",
+    [musvg_type_id]          = "id",
+    [musvg_type_length]      = "length",
+    [musvg_type_color]       = "color",
+    [musvg_type_transform]   = "transform",
+    [musvg_type_dasharray]   = "dasharray",
+    [musvg_type_float]       = "float",
+    [musvg_type_viewbox]     = "viewbox",
+    [musvg_type_aspectratio] = "aspectratio",
+    [musvg_type_path]        = "path",
+    [musvg_type_points]      = "points",
+};
+
 // XML parser
 
 #define TAG 1
@@ -2701,7 +2715,7 @@ int musvg_parse_svg_xml(musvg_parser* p, mu_buf *buf)
      * also make it look like we read from the source buffer. */
     mu_buf *tmp = mu_buf_new(buf->write_marker + 1);
     mu_buf_write_bytes(tmp, buf->data, buf->write_marker);
-    tmp->data[buf->write_marker] = '\0';
+    mu_buf_write_i8(buf, 0);
     int ret = musvg_parse_xml(tmp->data, musvg_start_element,
                               musvg_end_element, musvg_content, p);
     buf->read_marker = buf->write_marker;
@@ -2882,6 +2896,43 @@ void musvg_parser_stats(musvg_parser* p)
     //print_array_stats(&p->brushes, sizeof(musvg_brush), "brushes");
     print_stats_lines();
     print_summary_totals(p);
+}
+
+// dump
+
+void musvg_parser_dump(musvg_parser* p)
+{
+    printf("%7s%5s%7s%7s%5s%7s%5s %s\n",
+        "node", "type", "next", "attr", "type", "offset", "size", "value");
+    printf("%7s%5s%7s%7s%5s%7s%5s %s\n",
+        "------", "----", "------", "------", "----", "------", "----",
+        "------------------------------------");
+    for (ullong i = 0; i < p->nodes.count; i++) {
+        musvg_node *node = nodes_get(p, i);
+        printf("%7llu%5u%7llu%7s%5s%7s%5s <%s>\n",
+            i, node->type, node->next, "", "", "", "",
+            musvg_element_names[node->type]);
+        for (ullong j = 0; j <  node->attr_count; j++) {
+            musvg_offset *offset = attr_offsets_get(p, node->attr_offset + j);
+            int attr = offset->attr_type;
+            const musvg_typeinfo_attr *ti = musvg_type_info_attr + attr;
+            const char *type_name = musvg_type_names[ti->type];
+            size_t type_size = musvg_type_storage[ti->type].size;
+            musvg_attr_buf_fn fn = musvg_text_emitters[ti->type];
+            mu_buf *buf = mu_resizable_buf_new();
+            fn(p, buf, node, attr);
+            if (buf->write_marker > 21) {
+                buf->data[19] = '.';
+                buf->data[20] = '.';
+                buf->data[21] = '\0';
+            }
+            mu_buf_write_i8(buf, 0);
+            printf("%7s%5s%7s%7llu%5u%7llu%5zu  %s: %s(\"%s\")\n",
+                "", "", "", node->attr_offset + j, attr, offset->attr_storage,
+                type_size, musvg_attribute_names[attr], type_name, buf->data);
+            mu_buf_destroy(buf);
+        }
+    }
 }
 
 // file io helper functions
