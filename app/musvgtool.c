@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "vf128.h"
+#include "mubuf.h"
 #include "musvg.h"
 
 int check_opt(const char *arg, const char* sopt, const char *lopt)
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
         } else if (check_opt(argv[i],"-s","--stats")) {
             print_stats = 1;
         } else if (check_opt(argv[i],"-d","--debug")) {
-            vf_set_debug(1);
+            mu_set_debug(1);
         } else if (check_opt(argv[i],"-h","--help")) {
             help_exit = 1;
         } else {

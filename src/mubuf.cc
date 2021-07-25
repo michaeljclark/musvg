@@ -8,7 +8,7 @@
 #include <string>
 #include <limits>
 
-#include "vf128.h"
+#include "mubuf.h"
 #include "stdbits.h"
 #include "stdendian.h"
 
@@ -37,19 +37,19 @@ int debug = 0;
  * called by ident_read | ident_write if low tag == 0b11111
  */
 
-size_t vf_asn1_ber_tag_length(u64 tag)
+size_t mu_asn1_ber_tag_length(u64 tag)
 {
     return tag == 0 ? 1 : 8 - ((clz(tag) - 1) / 7) + 1;
 }
 
-int vf_asn1_ber_tag_read(vf_buf *buf, u64 *tag)
+int mu_asn1_ber_tag_read(mu_buf *buf, u64 *tag)
 {
     int8_t b;
     size_t w = 0;
     u64 l = 0;
 
     do {
-        if (vf_buf_read_i8(buf, &b) != 1) {
+        if (mu_buf_read_i8(buf, &b) != 1) {
             goto err;
         }
         l <<= 7;
@@ -68,7 +68,7 @@ err:
     return -1;
 }
 
-int vf_asn1_ber_tag_write(vf_buf *buf, u64 tag)
+int mu_asn1_ber_tag_write(mu_buf *buf, u64 tag)
 {
     int8_t b;
     size_t llen;
@@ -78,13 +78,13 @@ int vf_asn1_ber_tag_write(vf_buf *buf, u64 tag)
         return -1;
     }
 
-    llen = vf_asn1_ber_tag_length(tag);
+    llen = mu_asn1_ber_tag_length(tag);
     l = tag << (64 - llen * 7);
     for (size_t i = 0; i < llen; i++) {
         b = ((l >> 57) & 0x7f);
         b |= (i != llen - 1) << 7;
         l <<= 7;
-        if (vf_buf_write_i8(buf, b) != 1) {
+        if (mu_buf_write_i8(buf, b) != 1) {
             return -1;
         }
     }
@@ -98,18 +98,18 @@ int vf_asn1_ber_tag_write(vf_buf *buf, u64 tag)
  * read and write identifier
  */
 
-size_t vf_asn1_ber_ident_length(asn1_id _id)
+size_t mu_asn1_ber_ident_length(asn1_id _id)
 {
     return 1 + ((_id._identifier >= 0x1f) ?
-        vf_asn1_ber_tag_length(_id._identifier) : 0);
+        mu_asn1_ber_tag_length(_id._identifier) : 0);
 }
 
-int vf_asn1_ber_ident_read(vf_buf *buf, asn1_id *_id)
+int mu_asn1_ber_ident_read(mu_buf *buf, asn1_id *_id)
 {
     int8_t b;
     asn1_id r = { 0 };
 
-    if (vf_buf_read_i8(buf, &b) != 1) {
+    if (mu_buf_read_i8(buf, &b) != 1) {
         return -1;;
     }
 
@@ -119,7 +119,7 @@ int vf_asn1_ber_ident_read(vf_buf *buf, asn1_id *_id)
 
     if (_id->_identifier == 0x1f) {
         u64 ber_tag;
-        if (vf_asn1_ber_tag_read(buf, &ber_tag) < 0) {
+        if (mu_asn1_ber_tag_read(buf, &ber_tag) < 0) {
             return -1;
         }
         if (ber_tag < 0x1f) {
@@ -131,7 +131,7 @@ int vf_asn1_ber_ident_read(vf_buf *buf, asn1_id *_id)
     return 0;
 }
 
-int vf_asn1_ber_ident_write(vf_buf *buf, asn1_id _id)
+int mu_asn1_ber_ident_write(mu_buf *buf, asn1_id _id)
 {
     int8_t b;
 
@@ -139,12 +139,12 @@ int vf_asn1_ber_ident_write(vf_buf *buf, asn1_id _id)
         ( (u8)(_id._constructed & 0x01) << 5 ) |
         ( (u8)(_id._identifier < 0x1f ? _id._identifier : 0x1f) );
 
-    if (vf_buf_write_i8(buf, b) != 1) {
+    if (mu_buf_write_i8(buf, b) != 1) {
         return -1;
     }
 
     if (_id._identifier >= 0x1f) {
-        if (vf_asn1_ber_tag_write(buf, _id._identifier) < 0) {
+        if (mu_asn1_ber_tag_write(buf, _id._identifier) < 0) {
             return -1;
         }
     }
@@ -158,18 +158,18 @@ int vf_asn1_ber_ident_write(vf_buf *buf, asn1_id _id)
  * read and write 64-bit length
  */
 
-size_t vf_asn1_ber_length_length(u64 length)
+size_t mu_asn1_ber_length_length(u64 length)
 {
     return 1 + ((length >= 0x80) ? 8 - (clz(length) / 8) : 0);
 }
 
-int vf_asn1_ber_length_read(vf_buf *buf, u64 *length)
+int mu_asn1_ber_length_read(mu_buf *buf, u64 *length)
 {
     int8_t b;
     size_t llen = 0;
     u64 l = 0;
 
-    if (vf_buf_read_i8(buf, &b) != 1) {
+    if (mu_buf_read_i8(buf, &b) != 1) {
         goto err;
     }
     if ((b & 0x80) == 0) {
@@ -185,7 +185,7 @@ int vf_asn1_ber_length_read(vf_buf *buf, u64 *length)
         goto err;
     }
     for (size_t i = 0; i < llen; i++) {
-        if (vf_buf_read_i8(buf, &b) != 1) {
+        if (mu_buf_read_i8(buf, &b) != 1) {
             goto err;
         }
         l <<= 8;
@@ -200,7 +200,7 @@ err:
     return -1;
 }
 
-int vf_asn1_ber_length_write(vf_buf *buf, u64 length)
+int mu_asn1_ber_length_write(mu_buf *buf, u64 length)
 {
     int8_t b;
     size_t llen;
@@ -208,7 +208,7 @@ int vf_asn1_ber_length_write(vf_buf *buf, u64 length)
 
     if (length <= 0x7f) {
         b = (int8_t)length;
-        if (vf_buf_write_i8(buf, b) != 1) {
+        if (mu_buf_write_i8(buf, b) != 1) {
             return -1;
         }
         return 0;
@@ -217,7 +217,7 @@ int vf_asn1_ber_length_write(vf_buf *buf, u64 length)
 
     llen = 8 - (clz(length) / 8);
     b = (u8)llen | (u8)0x80;
-    if (vf_buf_write_i8(buf, b) != 1) {
+    if (mu_buf_write_i8(buf, b) != 1) {
         return -1;
     }
 
@@ -225,7 +225,7 @@ int vf_asn1_ber_length_write(vf_buf *buf, u64 length)
     for (size_t i = 0; i < llen; i++) {
         b = (l >> 56) & 0xff;
         l <<= 8;
-        if (vf_buf_write_i8(buf, b) != 1) {
+        if (mu_buf_write_i8(buf, b) != 1) {
             return -1;
         }
     }
@@ -239,17 +239,17 @@ int vf_asn1_ber_length_write(vf_buf *buf, u64 length)
  * read and write integer
  */
 
-size_t vf_asn1_ber_integer_u64_length(const u64 *value)
+size_t mu_asn1_ber_integer_u64_length(const u64 *value)
 {
     return *value == 0 ? 1 : 8 - (clz(*value) / 8);
 }
 
-size_t vf_asn1_ber_integer_u64_length_byval(const u64 value)
+size_t mu_asn1_ber_integer_u64_length_byval(const u64 value)
 {
     return value == 0 ? 1 : 8 - (clz(value) / 8);
 }
 
-int vf_asn1_ber_integer_u64_read(vf_buf *buf, size_t len, u64 *value)
+int mu_asn1_ber_integer_u64_read(mu_buf *buf, size_t len, u64 *value)
 {
     u64 v = 0, o = 0;
     size_t shift = (64 - len * 8);
@@ -257,7 +257,7 @@ int vf_asn1_ber_integer_u64_read(vf_buf *buf, size_t len, u64 *value)
     if (len > 8) {
         goto err;
     }
-    if (vf_buf_read_bytes(buf, (char*)&o, len) != len) {
+    if (mu_buf_read_bytes(buf, (char*)&o, len) != len) {
         goto err;
     }
 
@@ -274,7 +274,7 @@ err:
     return -1;
 }
 
-u64_result vf_asn1_ber_integer_u64_read_byval(vf_buf *buf, size_t len)
+u64_result mu_asn1_ber_integer_u64_read_byval(mu_buf *buf, size_t len)
 {
     u64 v = 0, o = 0;
     size_t shift = (64 - len * 8);
@@ -282,7 +282,7 @@ u64_result vf_asn1_ber_integer_u64_read_byval(vf_buf *buf, size_t len)
     if (len > 8) {
         return { 0, -1 };
     }
-    if (vf_buf_read_bytes(buf, (char*)&o, len) != len) {
+    if (mu_buf_read_bytes(buf, (char*)&o, len) != len) {
         return { 0, -1 };
     }
 
@@ -295,7 +295,7 @@ u64_result vf_asn1_ber_integer_u64_read_byval(vf_buf *buf, size_t len)
     return { v, 0 };
 }
 
-int vf_asn1_ber_integer_u64_write(vf_buf *buf, size_t len, const u64 *value)
+int mu_asn1_ber_integer_u64_write(mu_buf *buf, size_t len, const u64 *value)
 {
     u64 v = 0, o = 0;
     size_t shift = (64 - len * 8);
@@ -310,14 +310,14 @@ int vf_asn1_ber_integer_u64_write(vf_buf *buf, size_t len, const u64 *value)
     o = be64(*value) >> shift;
 #endif
 
-    if (vf_buf_write_bytes(buf, (const char*)&o, len) != len) {
+    if (mu_buf_write_bytes(buf, (const char*)&o, len) != len) {
         return -1;
     }
 
     return 0;
 }
 
-int vf_asn1_ber_integer_u64_write_byval(vf_buf *buf, size_t len, const u64 value)
+int mu_asn1_ber_integer_u64_write_byval(mu_buf *buf, size_t len, const u64 value)
 {
     u64 v = 0, o = 0;
     size_t shift = (64 - len * 8);
@@ -332,7 +332,7 @@ int vf_asn1_ber_integer_u64_write_byval(vf_buf *buf, size_t len, const u64 value
     o = be64(value) >> shift;
 #endif
 
-    if (vf_buf_write_bytes(buf, (const char*)&o, len) != len) {
+    if (mu_buf_write_bytes(buf, (const char*)&o, len) != len) {
         return -1;
     }
 
@@ -344,17 +344,17 @@ int vf_asn1_ber_integer_u64_write_byval(vf_buf *buf, size_t len, const u64 value
  * read and write integer
  */
 
-size_t vf_le_ber_integer_u64_length(const u64 *value)
+size_t mu_le_ber_integer_u64_length(const u64 *value)
 {
     return *value == 0 ? 1 : 8 - (clz(*value) / 8);
 }
 
-size_t vf_le_ber_integer_u64_length_byval(const u64 value)
+size_t mu_le_ber_integer_u64_length_byval(const u64 value)
 {
     return value == 0 ? 1 : 8 - (clz(value) / 8);
 }
 
-int vf_le_ber_integer_u64_read(vf_buf *buf, size_t len, u64 *value)
+int mu_le_ber_integer_u64_read(mu_buf *buf, size_t len, u64 *value)
 {
     u64 v = 0, o = 0;
 
@@ -365,11 +365,11 @@ int vf_le_ber_integer_u64_read(vf_buf *buf, size_t len, u64 *value)
 #if USE_UNALIGNED_ACCESSES
     *value = 0;
     /* unaligned accesses are enabled on little-endian targets */
-    if (vf_buf_read_bytes(buf, (char*)value, len) != len) {
+    if (mu_buf_read_bytes(buf, (char*)value, len) != len) {
         goto err;
     }
 #else
-    if (vf_buf_read_bytes(buf, (char*)&o, len) != len) {
+    if (mu_buf_read_bytes(buf, (char*)&o, len) != len) {
         goto err;
     }
 
@@ -381,7 +381,7 @@ err:
     return -1;
 }
 
-u64_result vf_le_ber_integer_u64_read_byval(vf_buf *buf, size_t len)
+u64_result mu_le_ber_integer_u64_read_byval(mu_buf *buf, size_t len)
 {
     u64 v = 0, o = 0;
 
@@ -389,14 +389,14 @@ u64_result vf_le_ber_integer_u64_read_byval(vf_buf *buf, size_t len)
         return u64_result { 0, -1 };
     }
 
-    if (vf_buf_read_bytes(buf, (char*)&o, len) != len) {
+    if (mu_buf_read_bytes(buf, (char*)&o, len) != len) {
         return u64_result { 0, -1 };
     }
 
     return u64_result { le64(o), 0 };
 }
 
-int vf_le_ber_integer_u64_write(vf_buf *buf, size_t len, const u64 *value)
+int mu_le_ber_integer_u64_write(mu_buf *buf, size_t len, const u64 *value)
 {
     u64 v = 0, o = 0;
 
@@ -406,13 +406,13 @@ int vf_le_ber_integer_u64_write(vf_buf *buf, size_t len, const u64 *value)
 
 #if USE_UNALIGNED_ACCESSES
     /* unaligned accesses are enabled on little-endian targets */
-    if (vf_buf_write_bytes(buf, (const char*)value, len) != len) {
+    if (mu_buf_write_bytes(buf, (const char*)value, len) != len) {
         return -1;
     }
 #else
     o = le64(*value);
 
-    if (vf_buf_write_bytes(buf, (const char*)&o, len) != len) {
+    if (mu_buf_write_bytes(buf, (const char*)&o, len) != len) {
         return -1;
     }
 #endif
@@ -420,7 +420,7 @@ int vf_le_ber_integer_u64_write(vf_buf *buf, size_t len, const u64 *value)
     return 0;
 }
 
-int vf_le_ber_integer_u64_write_byval(vf_buf *buf, size_t len, const u64 value)
+int mu_le_ber_integer_u64_write_byval(mu_buf *buf, size_t len, const u64 value)
 {
     u64 v = 0, o = 0;
 
@@ -430,7 +430,7 @@ int vf_le_ber_integer_u64_write_byval(vf_buf *buf, size_t len, const u64 value)
 
     o = le64(value);
 
-    if (vf_buf_write_bytes(buf, (const char*)&o, len) != len) {
+    if (mu_buf_write_bytes(buf, (const char*)&o, len) != len) {
         return -1;
     }
 
@@ -448,13 +448,13 @@ int vf_le_ber_integer_u64_write_byval(vf_buf *buf, size_t len, const u64 value)
  * - 0xffffffffffffff80 -> 0x80
  * - 0xffffffffffffff7f -> 0xff7f
  */
-size_t vf_asn1_ber_integer_s64_length(const s64 *value)
+size_t mu_asn1_ber_integer_s64_length(const s64 *value)
 {
     const s64 v = *value;
     return v == 0 ? 1 : 8 - ((clz(v < 0 ? ~v : v)-1) / 8);
 }
 
-size_t vf_asn1_ber_integer_s64_length_byval(const s64 value)
+size_t mu_asn1_ber_integer_s64_length_byval(const s64 value)
 {
     const s64 v = value;
     return v == 0 ? 1 : 8 - ((clz(v < 0 ? ~v : v)-1) / 8);
@@ -462,150 +462,150 @@ size_t vf_asn1_ber_integer_s64_length_byval(const s64 value)
 
 static s64 _sign_extend_s64(s64 x, size_t y) { return ((s64)(x << y)) >> y; }
 
-int vf_asn1_ber_integer_s64_read(vf_buf *buf, size_t len, s64 *value)
+int mu_asn1_ber_integer_s64_read(mu_buf *buf, size_t len, s64 *value)
 {
-    int ret = vf_asn1_ber_integer_u64_read(buf, len, (u64*)value);
+    int ret = mu_asn1_ber_integer_u64_read(buf, len, (u64*)value);
     if (ret == 0) {
         *value = _sign_extend_s64(*value, 64-(len << 3));
     }
     return ret;
 }
 
-s64_result vf_asn1_ber_integer_s64_read_byval(vf_buf *buf, size_t len)
+s64_result mu_asn1_ber_integer_s64_read_byval(mu_buf *buf, size_t len)
 {
-    u64_result r = vf_asn1_ber_integer_u64_read_byval(buf, len);
+    u64_result r = mu_asn1_ber_integer_u64_read_byval(buf, len);
     if (r.error == 0) {
         return s64_result { _sign_extend_s64(r.value, 64-(len << 3)), 0 };
     }
     return s64_result { 0, -1 };
 }
 
-int vf_asn1_ber_integer_s64_write(vf_buf *buf, size_t len, const s64 *value)
+int mu_asn1_ber_integer_s64_write(mu_buf *buf, size_t len, const s64 *value)
 {
-    return vf_asn1_ber_integer_u64_write(buf, len, (const u64*)value);
+    return mu_asn1_ber_integer_u64_write(buf, len, (const u64*)value);
 }
 
-int vf_asn1_ber_integer_s64_write_byval(vf_buf *buf, size_t len, const s64 value)
+int mu_asn1_ber_integer_s64_write_byval(mu_buf *buf, size_t len, const s64 value)
 {
-    return vf_asn1_ber_integer_u64_write_byval(buf, len, (const u64)value);
+    return mu_asn1_ber_integer_u64_write_byval(buf, len, (const u64)value);
 }
 
-size_t vf_le_ber_integer_s64_length(const s64 *value)
+size_t mu_le_ber_integer_s64_length(const s64 *value)
 {
-    return vf_asn1_ber_integer_s64_length(value);
+    return mu_asn1_ber_integer_s64_length(value);
 }
 
-size_t vf_le_ber_integer_s64_length_byval(const s64 value)
+size_t mu_le_ber_integer_s64_length_byval(const s64 value)
 {
-    return vf_asn1_ber_integer_s64_length_byval(value);
+    return mu_asn1_ber_integer_s64_length_byval(value);
 }
 
-int vf_le_ber_integer_s64_read(vf_buf *buf, size_t len, s64 *value)
+int mu_le_ber_integer_s64_read(mu_buf *buf, size_t len, s64 *value)
 {
-    int ret = vf_le_ber_integer_u64_read(buf, len, (u64*)value);
+    int ret = mu_le_ber_integer_u64_read(buf, len, (u64*)value);
     if (ret == 0) {
         *value = _sign_extend_s64(*value, 64-(len << 3));
     }
     return ret;
 }
 
-s64_result vf_le_ber_integer_s64_read_byval(vf_buf *buf, size_t len)
+s64_result mu_le_ber_integer_s64_read_byval(mu_buf *buf, size_t len)
 {
-    u64_result r = vf_le_ber_integer_u64_read_byval(buf, len);
+    u64_result r = mu_le_ber_integer_u64_read_byval(buf, len);
     if (r.error == 0) {
         return s64_result { _sign_extend_s64(r.value, 64-(len << 3)), 0 };
     }
     return s64_result { 0, -1 };
 }
 
-int vf_le_ber_integer_s64_write(vf_buf *buf, size_t len, const s64 *value)
+int mu_le_ber_integer_s64_write(mu_buf *buf, size_t len, const s64 *value)
 {
-    return vf_le_ber_integer_u64_write(buf, len, (const u64*)value);
+    return mu_le_ber_integer_u64_write(buf, len, (const u64*)value);
 }
 
-int vf_le_ber_integer_s64_write_byval(vf_buf *buf, size_t len, const s64 value)
+int mu_le_ber_integer_s64_write_byval(mu_buf *buf, size_t len, const s64 value)
 {
-    return vf_le_ber_integer_u64_write_byval(buf, len, value);
+    return mu_le_ber_integer_u64_write_byval(buf, len, value);
 }
 
 /*
  * read and write tagged integer
  */
 
-int vf_asn1_der_integer_u64_read(vf_buf *buf, asn1_tag _tag, u64 *value)
+int mu_asn1_der_integer_u64_read(mu_buf *buf, asn1_tag _tag, u64 *value)
 {
     asn1_hdr hdr;
-    if (vf_asn1_ber_ident_read(buf, &hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_read(buf, &hdr._length) < 0) return -1;
-    return vf_asn1_ber_integer_u64_read(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_read(buf, &hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_read(buf, &hdr._length) < 0) return -1;
+    return mu_asn1_ber_integer_u64_read(buf, hdr._length, value);
 }
 
-u64_result vf_asn1_der_integer_u64_read_byval(vf_buf *buf, asn1_tag _tag)
+u64_result mu_asn1_der_integer_u64_read_byval(mu_buf *buf, asn1_tag _tag)
 {
     asn1_hdr hdr;
-    if (vf_asn1_ber_ident_read(buf, &hdr._id) < 0) return u64_result { 0, -1 };
-    if (vf_asn1_ber_length_read(buf, &hdr._length) < 0) return u64_result { 0, -1 };
-    return vf_asn1_ber_integer_u64_read_byval(buf, hdr._length);
+    if (mu_asn1_ber_ident_read(buf, &hdr._id) < 0) return u64_result { 0, -1 };
+    if (mu_asn1_ber_length_read(buf, &hdr._length) < 0) return u64_result { 0, -1 };
+    return mu_asn1_ber_integer_u64_read_byval(buf, hdr._length);
 }
 
-int vf_asn1_der_integer_u64_write(vf_buf *buf, asn1_tag _tag, const u64 *value)
+int mu_asn1_der_integer_u64_write(mu_buf *buf, asn1_tag _tag, const u64 *value)
 {
     asn1_hdr hdr = {
-        { (u64)_tag, 0, asn1_class_universal }, vf_asn1_ber_integer_u64_length(value)
+        { (u64)_tag, 0, asn1_class_universal }, mu_asn1_ber_integer_u64_length(value)
     };
 
-    if (vf_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
-    return vf_asn1_ber_integer_u64_write(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
+    return mu_asn1_ber_integer_u64_write(buf, hdr._length, value);
 }
 
-int vf_asn1_der_integer_u64_write_byval(vf_buf *buf, asn1_tag _tag, const u64 value)
+int mu_asn1_der_integer_u64_write_byval(mu_buf *buf, asn1_tag _tag, const u64 value)
 {
     asn1_hdr hdr = {
-        { (u64)_tag, 0, asn1_class_universal }, vf_asn1_ber_integer_u64_length_byval(value)
+        { (u64)_tag, 0, asn1_class_universal }, mu_asn1_ber_integer_u64_length_byval(value)
     };
 
-    if (vf_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
-    return vf_asn1_ber_integer_u64_write_byval(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
+    return mu_asn1_ber_integer_u64_write_byval(buf, hdr._length, value);
 }
 
-int vf_asn1_der_integer_s64_read(vf_buf *buf, asn1_tag _tag, s64 *value)
+int mu_asn1_der_integer_s64_read(mu_buf *buf, asn1_tag _tag, s64 *value)
 {
     asn1_hdr hdr;
-    if (vf_asn1_ber_ident_read(buf, &hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_read(buf, &hdr._length) < 0) return -1;
-    return vf_asn1_ber_integer_s64_read(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_read(buf, &hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_read(buf, &hdr._length) < 0) return -1;
+    return mu_asn1_ber_integer_s64_read(buf, hdr._length, value);
 }
 
-s64_result vf_asn1_der_integer_s64_read_byval(vf_buf *buf, asn1_tag _tag, s64 *value)
+s64_result mu_asn1_der_integer_s64_read_byval(mu_buf *buf, asn1_tag _tag, s64 *value)
 {
     asn1_hdr hdr;
-    if (vf_asn1_ber_ident_read(buf, &hdr._id) < 0) return s64_result { 0, -1 };
-    if (vf_asn1_ber_length_read(buf, &hdr._length) < 0) return s64_result { 0, -1 };
-    return vf_asn1_ber_integer_s64_read_byval(buf, hdr._length);
+    if (mu_asn1_ber_ident_read(buf, &hdr._id) < 0) return s64_result { 0, -1 };
+    if (mu_asn1_ber_length_read(buf, &hdr._length) < 0) return s64_result { 0, -1 };
+    return mu_asn1_ber_integer_s64_read_byval(buf, hdr._length);
 }
 
-int vf_asn1_der_integer_s64_write(vf_buf *buf, asn1_tag _tag, const s64 *value)
+int mu_asn1_der_integer_s64_write(mu_buf *buf, asn1_tag _tag, const s64 *value)
 {
     asn1_hdr hdr = {
-        { (u64)_tag, 0, asn1_class_universal }, vf_asn1_ber_integer_s64_length(value)
+        { (u64)_tag, 0, asn1_class_universal }, mu_asn1_ber_integer_s64_length(value)
     };
 
-    if (vf_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
-    return vf_asn1_ber_integer_s64_write(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
+    return mu_asn1_ber_integer_s64_write(buf, hdr._length, value);
 }
 
-int vf_asn1_der_integer_s64_write_byval(vf_buf *buf, asn1_tag _tag, const s64 value)
+int mu_asn1_der_integer_s64_write_byval(mu_buf *buf, asn1_tag _tag, const s64 value)
 {
     asn1_hdr hdr = {
-        { (u64)_tag, 0, asn1_class_universal }, vf_asn1_ber_integer_s64_length_byval(value)
+        { (u64)_tag, 0, asn1_class_universal }, mu_asn1_ber_integer_s64_length_byval(value)
     };
 
-    if (vf_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
-    return vf_asn1_ber_integer_s64_write_byval(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
+    return mu_asn1_ber_integer_s64_write_byval(buf, hdr._length, value);
 }
 
 /*
@@ -846,14 +846,14 @@ static f64_real_data f64_asn1_data_get(double value)
 
     return f64_real_data {
         frac, sexp,
-        vf_asn1_ber_integer_u64_length(&frac),
-        vf_asn1_ber_integer_s64_length(&sexp),
+        mu_asn1_ber_integer_u64_length(&frac),
+        mu_asn1_ber_integer_s64_length(&sexp),
         !!f64_sign_dec(value), !!f64_is_inf(value),
         !!f64_is_nan(value), !!f64_is_zero(value)
     };
 }
 
-size_t vf_asn1_ber_real_f64_length(const double *value)
+size_t mu_asn1_ber_real_f64_length(const double *value)
 {
     f64_real_data d = f64_asn1_data_get(*value);
 
@@ -866,7 +866,7 @@ size_t vf_asn1_ber_real_f64_length(const double *value)
     }
 }
 
-size_t vf_asn1_ber_real_f64_length_byval(const double value)
+size_t mu_asn1_ber_real_f64_length_byval(const double value)
 {
     f64_real_data d = f64_asn1_data_get(value);
 
@@ -879,7 +879,7 @@ size_t vf_asn1_ber_real_f64_length_byval(const double value)
     }
 }
 
-int vf_asn1_ber_real_f64_read(vf_buf *buf, size_t len, double *value)
+int mu_asn1_ber_real_f64_read(mu_buf *buf, size_t len, double *value)
 {
     int8_t b;
     double v = 0;
@@ -893,7 +893,7 @@ int vf_asn1_ber_real_f64_read(vf_buf *buf, size_t len, double *value)
     bool sign;
     size_t frac_lz;
 
-    if (vf_buf_read_i8(buf, &b) != 1) {
+    if (mu_buf_read_i8(buf, &b) != 1) {
         goto err;
     }
     fmt = _asn1_real_format(b);
@@ -917,10 +917,10 @@ int vf_asn1_ber_real_f64_read(vf_buf *buf, size_t len, double *value)
     }
     frac_len = len - exp_len - 1;
 
-    if (vf_asn1_ber_integer_s64_read(buf, exp_len, &sexp) < 0) {
+    if (mu_asn1_ber_integer_s64_read(buf, exp_len, &sexp) < 0) {
         goto err;
     }
-    if (vf_asn1_ber_integer_u64_read(buf, frac_len, &frac) < 0) {
+    if (mu_asn1_ber_integer_u64_read(buf, frac_len, &frac) < 0) {
         goto err;
     }
     frac_lz = clz(frac);
@@ -953,7 +953,7 @@ err:
     return -1;
 }
 
-f64_result vf_asn1_ber_real_f64_read_byval(vf_buf *buf, size_t len)
+f64_result mu_asn1_ber_real_f64_read_byval(mu_buf *buf, size_t len)
 {
     int8_t b;
     double v = 0;
@@ -969,7 +969,7 @@ f64_result vf_asn1_ber_real_f64_read_byval(vf_buf *buf, size_t len)
     s64_result rexp;
     u64_result rfrac;
 
-    if (vf_buf_read_i8(buf, &b) != 1) {
+    if (mu_buf_read_i8(buf, &b) != 1) {
         return f64_result { 0, -1 };
     }
     fmt = _asn1_real_format(b);
@@ -993,12 +993,12 @@ f64_result vf_asn1_ber_real_f64_read_byval(vf_buf *buf, size_t len)
     }
     frac_len = len - exp_len - 1;
 
-    rexp = vf_asn1_ber_integer_s64_read_byval(buf, exp_len);
+    rexp = mu_asn1_ber_integer_s64_read_byval(buf, exp_len);
     if (rexp.error < 0) {
         return f64_result { 0, rexp.error };
     }
     sexp = rexp.value;
-    rfrac = vf_asn1_ber_integer_u64_read_byval(buf, frac_len);
+    rfrac = mu_asn1_ber_integer_u64_read_byval(buf, frac_len);
     if (rfrac.error < 0) {
         return f64_result { 0, rfrac.error };
     }
@@ -1029,7 +1029,7 @@ f64_result vf_asn1_ber_real_f64_read_byval(vf_buf *buf, size_t len)
     return f64_result { v, 0 };
 }
 
-int vf_asn1_ber_real_f64_write(vf_buf *buf, size_t len, const double *value)
+int mu_asn1_ber_real_f64_write(mu_buf *buf, size_t len, const double *value)
 {
     f64_real_data d = f64_asn1_data_get(*value);
 
@@ -1052,23 +1052,23 @@ int vf_asn1_ber_real_f64_write(vf_buf *buf, size_t len, const double *value)
         }
         b = _asn1_real_binary(d.sign, exp_code);
     }
-    if (vf_buf_write_i8(buf, b) != 1) {
+    if (mu_buf_write_i8(buf, b) != 1) {
         return -1;
     }
     if ((d.zero && d.sign) || d.inf || d.nan) {
         return 0;
     }
-    if (vf_asn1_ber_integer_s64_write(buf, d.exp_len, &d.sexp) < 0) {
+    if (mu_asn1_ber_integer_s64_write(buf, d.exp_len, &d.sexp) < 0) {
         return -1;
     }
-    if (vf_asn1_ber_integer_u64_write(buf, d.frac_len, &d.frac) < 0) {
+    if (mu_asn1_ber_integer_u64_write(buf, d.frac_len, &d.frac) < 0) {
         return -1;
     }
 
     return 0;
 }
 
-int vf_asn1_ber_real_f64_write_byval(vf_buf *buf, size_t len, const double value)
+int mu_asn1_ber_real_f64_write_byval(mu_buf *buf, size_t len, const double value)
 {
     f64_real_data d = f64_asn1_data_get(value);
 
@@ -1091,58 +1091,58 @@ int vf_asn1_ber_real_f64_write_byval(vf_buf *buf, size_t len, const double value
         }
         b = _asn1_real_binary(d.sign, exp_code);
     }
-    if (vf_buf_write_i8(buf, b) != 1) {
+    if (mu_buf_write_i8(buf, b) != 1) {
         return -1;
     }
     if ((d.zero && d.sign) || d.inf || d.nan) {
         return 0;
     }
-    if (vf_asn1_ber_integer_s64_write_byval(buf, d.exp_len, d.sexp) < 0) {
+    if (mu_asn1_ber_integer_s64_write_byval(buf, d.exp_len, d.sexp) < 0) {
         return -1;
     }
-    if (vf_asn1_ber_integer_u64_write_byval(buf, d.frac_len, d.frac) < 0) {
+    if (mu_asn1_ber_integer_u64_write_byval(buf, d.frac_len, d.frac) < 0) {
         return -1;
     }
 
     return 0;
 }
 
-int vf_asn1_der_real_f64_read(vf_buf *buf, asn1_tag _tag, double *value)
+int mu_asn1_der_real_f64_read(mu_buf *buf, asn1_tag _tag, double *value)
 {
     asn1_hdr hdr;
-    if (vf_asn1_ber_ident_read(buf, &hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_read(buf, &hdr._length) < 0) return -1;
-    return vf_asn1_ber_real_f64_read(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_read(buf, &hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_read(buf, &hdr._length) < 0) return -1;
+    return mu_asn1_ber_real_f64_read(buf, hdr._length, value);
 }
 
-f64_result vf_asn1_der_real_f64_read_byval(vf_buf *buf, asn1_tag _tag)
+f64_result mu_asn1_der_real_f64_read_byval(mu_buf *buf, asn1_tag _tag)
 {
     asn1_hdr hdr;
-    if (vf_asn1_ber_ident_read(buf, &hdr._id) < 0) return f64_result { 0, -1 };
-    if (vf_asn1_ber_length_read(buf, &hdr._length) < 0) return f64_result { 0, -1 };
-    return vf_asn1_ber_real_f64_read_byval(buf, hdr._length);
+    if (mu_asn1_ber_ident_read(buf, &hdr._id) < 0) return f64_result { 0, -1 };
+    if (mu_asn1_ber_length_read(buf, &hdr._length) < 0) return f64_result { 0, -1 };
+    return mu_asn1_ber_real_f64_read_byval(buf, hdr._length);
 }
 
-int vf_asn1_der_real_f64_write(vf_buf *buf, asn1_tag _tag, const double *value)
+int mu_asn1_der_real_f64_write(mu_buf *buf, asn1_tag _tag, const double *value)
 {
     asn1_hdr hdr = {
-        { (u64)_tag, 0, asn1_class_universal }, vf_asn1_ber_real_f64_length(value)
+        { (u64)_tag, 0, asn1_class_universal }, mu_asn1_ber_real_f64_length(value)
     };
 
-    if (vf_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
-    return vf_asn1_ber_real_f64_write(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
+    return mu_asn1_ber_real_f64_write(buf, hdr._length, value);
 }
 
-int vf_asn1_der_real_f64_write_byval(vf_buf *buf, asn1_tag _tag, const double value)
+int mu_asn1_der_real_f64_write_byval(mu_buf *buf, asn1_tag _tag, const double value)
 {
     asn1_hdr hdr = {
-        { (u64)_tag, 0, asn1_class_universal }, vf_asn1_ber_real_f64_length_byval(value)
+        { (u64)_tag, 0, asn1_class_universal }, mu_asn1_ber_real_f64_length_byval(value)
     };
 
-    if (vf_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
-    if (vf_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
-    return vf_asn1_ber_real_f64_write_byval(buf, hdr._length, value);
+    if (mu_asn1_ber_ident_write(buf, hdr._id) < 0) return -1;
+    if (mu_asn1_ber_length_write(buf, hdr._length) < 0) return -1;
+    return mu_asn1_ber_real_f64_write_byval(buf, hdr._length, value);
 }
 
 /*
@@ -1150,10 +1150,10 @@ int vf_asn1_der_real_f64_write_byval(vf_buf *buf, asn1_tag _tag, const double va
  */
 
 /*
- * vf_f64_data contains fraction, signed exponent, their
+ * mu_vf128_f64_resultdata contains fraction, signed exponent, their
  * encoded lengths and flags for sign, infinity, nan and zero.
  */
-struct vf_f64_data
+struct mu_vf128_f64_resultdata
 {
     bool sign;
     s64 sexp;
@@ -1163,105 +1163,105 @@ struct vf_f64_data
 /*
  * extract exponent and left-justified fraction
  */
-static vf_f64_data vf_f64_data_get(double value)
+static mu_vf128_f64_resultdata mu_vf128_f64_resultdata_get(double value)
 {
     bool sign = !!f64_sign_dec(value);
     s64 sexp = (s64)(f64_exp_dec(value) - f64_exp_bias);
     u64 frac = (u64)f64_mant_dec(value) << (f64_exp_size + 1);
 
-    return vf_f64_data { sign, sexp, frac };
+    return mu_vf128_f64_resultdata { sign, sexp, frac };
 }
 
 #if DEBUG_ENCODING
-static void _vf_f64_debug(double v, u8 pre, s64 vp_exp, u64 vp_man, s64 vd_exp, u64 vd_man)
+static void _mu_vf128_f64_resultdebug(double v, u8 pre, s64 vp_exp, u64 vp_man, s64 vd_exp, u64 vd_man)
 {
-    bool vf_inl = (pre >> 7) & 1;
-    bool vf_sgn = (pre >> 6) & 1;
-    int vf_exp = (pre >> 4) & 3;
-    int vf_man = pre & 15;
+    bool mu_inl = (pre >> 7) & 1;
+    bool mu_sgn = (pre >> 6) & 1;
+    int mu_exp = (pre >> 4) & 3;
+    int mu_man = pre & 15;
 
     printf("\n%16s %20s -> %18s %5s -> %1s %1s %2s %4s %4s\n",
         "value (dec)", "value (hex)", "fraction", "exp",
         "i", "s", "ex", "mant", "len");
     printf("%16f %20a    0x%016llx %05lld    %1u %1u %c%c %c%c%c%c",
-        v, v, vp_man, vp_exp, vf_inl, vf_sgn,
-        '0' + ((vf_exp >> 1) & 1),
-        '0' + ((vf_exp >> 0) & 1),
-        '0' + ((vf_man >> 3) & 1),
-        '0' + ((vf_man >> 2) & 1),
-        '0' + ((vf_man >> 1) & 1),
-        '0' + ((vf_man >> 0) & 1));
+        v, v, vp_man, vp_exp, mu_inl, mu_sgn,
+        '0' + ((mu_exp >> 1) & 1),
+        '0' + ((mu_exp >> 0) & 1),
+        '0' + ((mu_man >> 3) & 1),
+        '0' + ((mu_man >> 2) & 1),
+        '0' + ((mu_man >> 1) & 1),
+        '0' + ((mu_man >> 0) & 1));
 
-    printf(" [%02d] { pre=0x%02hhx", 1 + (vf_inl ? 0 : vf_exp + vf_man), pre);
-    if (!vf_inl && vf_man) {
+    printf(" [%02d] { pre=0x%02hhx", 1 + (mu_inl ? 0 : mu_exp + mu_man), pre);
+    if (!mu_inl && mu_man) {
         printf(" man=0x%02llx", vd_man);
     }
-    if (!vf_inl && vf_exp) {
+    if (!mu_inl && mu_exp) {
         printf(" exp=%lld", vd_exp);
     }
     printf(" }\n");
 }
 #endif
 
-int vf_f64_read(vf_buf *buf, double *value)
+int mu_vf128_f64_resultread(mu_buf *buf, double *value)
 {
     s8 pre;
     double v = 0;
-    bool vf_inl;
-    bool vf_sgn;
-    int vf_exp;
-    int vf_man;
+    bool mu_inl;
+    bool mu_sgn;
+    int mu_exp;
+    int mu_man;
     u64 vr_man = 0;
     s64 vr_exp = 0;
     u64 vp_man = 0;
     s64 vp_exp = 0;
 
-    if (vf_buf_read_i8(buf, &pre) != 1) {
+    if (mu_buf_read_i8(buf, &pre) != 1) {
         goto err;
     }
 
-    vf_inl = (pre >> 7) & 1;
-    vf_sgn = (pre >> 6) & 1;
-    vf_exp = (pre >> 4) & 3;
-    vf_man = pre & 15;
+    mu_inl = (pre >> 7) & 1;
+    mu_sgn = (pre >> 6) & 1;
+    mu_exp = (pre >> 4) & 3;
+    mu_man = pre & 15;
 
-    if (!vf_inl) {
-        if (vf_exp && vf_le_ber_integer_s64_read(buf, vf_exp, &vr_exp) < 0) {
+    if (!mu_inl) {
+        if (mu_exp && mu_le_ber_integer_s64_read(buf, mu_exp, &vr_exp) < 0) {
             goto err;
         }
-        if (vf_man && vf_le_ber_integer_u64_read(buf, vf_man, &vr_man) < 0) {
+        if (mu_man && mu_le_ber_integer_u64_read(buf, mu_man, &vr_man) < 0) {
             goto err;
         }
     }
 
     /* inline exponent and mantissa using float7 */
-    if (vf_inl) {
-        if (vf_exp == 0) {
-            if (vf_man > 0) {
-                size_t lz = clz((u64)vf_man);
+    if (mu_inl) {
+        if (mu_exp == 0) {
+            if (mu_man > 0) {
+                size_t lz = clz((u64)mu_man);
                 /* inline subnormal - normalize by calculating exponent
                  * based on the leading zero count for the 4 bits right
                  * of the point hence 59 = (63 - 4) then left-justify
                  * the mantissa and truncate the leading 1. */
                 vp_exp = f64_exp_bias + 59 - lz;
-                vp_man = ((u64)vf_man << (lz + 1)) >> (f64_exp_size + 1);
+                vp_man = ((u64)mu_man << (lz + 1)) >> (f64_exp_size + 1);
             } else {
                 /* Zero */
                 vp_exp = 0;
                 vp_man = 0;
             }
         }
-        else if (vf_exp == 3) {
+        else if (mu_exp == 3) {
             /* inline Inf/NaN - set exponent then left-justify the mantissa,
              * containing 0b0000 for infinity or 0b1000 for canonical NaN. */
             vp_exp = f64_exp_mask;
-            vp_man = (u64)vf_man << (f64_mant_size - 4);
+            vp_man = (u64)mu_man << (f64_mant_size - 4);
         }
         else {
             /* inline normal - adjust exponent bias from 2-bit bias 1 to
              * the IEEE 754 bias then left-justify the mantissa. */
-            vp_exp = f64_exp_bias + vf_exp - 1;
-            vp_man = (u64)vf_man << (f64_mant_size - 4);
+            vp_exp = f64_exp_bias + mu_exp - 1;
+            vp_man = (u64)mu_man << (f64_mant_size - 4);
         }
     }
     /* out-of-line little-endian exponent and mantissa */
@@ -1277,17 +1277,17 @@ int vf_f64_read(vf_buf *buf, double *value)
         } else {
             /* normal - if no exponent, mantissa is a fraction in the range
              * +/-0.9900.. with a unary prefix containing the exponent. */
-            if (vf_exp == 0) vr_exp = -tz - 1;
+            if (mu_exp == 0) vr_exp = -tz - 1;
             vp_exp = f64_exp_bias + vr_exp;
             vp_man = (u64)vr_man << (lz + 1) >> (f64_exp_size + 1);
         }
     }
 
-    v = f64_pack_float(f64_struct{vp_man, (u64)vp_exp, vf_sgn});
+    v = f64_pack_float(f64_struct{vp_man, (u64)vp_exp, mu_sgn});
     *value = v;
 
 #if DEBUG_ENCODING
-    _vf_f64_debug(v, pre, vp_exp - f64_exp_bias, vp_man << 12, vr_exp, vr_man);
+    _mu_vf128_f64_resultdebug(v, pre, vp_exp - f64_exp_bias, vp_man << 12, vr_exp, vr_man);
 #endif
 
     return 0;
@@ -1301,69 +1301,69 @@ enum : u64 {
     u64_msn = 0xf000000000000000ull
 };
 
-f64_result vf_f64_read_byval(vf_buf *buf)
+f64_result mu_vf128_f64_resultread_byval(mu_buf *buf)
 {
     s8 pre;
     double v = 0;
-    bool vf_inl;
-    bool vf_sgn;
-    int vf_exp;
-    int vf_man;
+    bool mu_inl;
+    bool mu_sgn;
+    int mu_exp;
+    int mu_man;
     u64 vr_man = 0;
     s64 vr_exp = 0;
     u64 vp_man = 0;
     s64 vp_exp = 0;
 
-    if (vf_buf_read_i8(buf, &pre) != 1) {
+    if (mu_buf_read_i8(buf, &pre) != 1) {
         return f64_result { 0, -1 };
     }
 
-    vf_inl = (pre >> 7) & 1;
-    vf_sgn = (pre >> 6) & 1;
-    vf_exp = (pre >> 4) & 3;
-    vf_man = pre & 15;
+    mu_inl = (pre >> 7) & 1;
+    mu_sgn = (pre >> 6) & 1;
+    mu_exp = (pre >> 4) & 3;
+    mu_man = pre & 15;
 
-    if (!vf_inl) {
-        if (vf_exp) {
-            s64_result r = vf_le_ber_integer_s64_read_byval(buf, vf_exp);
+    if (!mu_inl) {
+        if (mu_exp) {
+            s64_result r = mu_le_ber_integer_s64_read_byval(buf, mu_exp);
             if (r.error < 0) return f64_result { 0, r.error };
             vr_exp = r.value;
         }
-        if (vf_man) {
-            u64_result r = vf_le_ber_integer_u64_read_byval(buf, vf_man);
+        if (mu_man) {
+            u64_result r = mu_le_ber_integer_u64_read_byval(buf, mu_man);
             if (r.error < 0) return f64_result { 0, r.error };
             vr_man = r.value;
         }
     }
 
     /* inline exponent and mantissa using float7 */
-    if (vf_inl) {
-        if (vf_exp == 0) {
-            if (vf_man > 0) {
-                size_t lz = clz((u64)vf_man);
+    if (mu_inl) {
+        if (mu_exp == 0) {
+            if (mu_man > 0) {
+                size_t lz = clz((u64)mu_man);
                 /* inline subnormal - normalize by calculating exponent
                  * based on the leading zero count for the 4 bits right
                  * of the point hence 59 = (63 - 4) then left-justify
                  * the mantissa and truncate the leading 1. */
                 vp_exp = f64_exp_bias + 59 - lz;
-                vp_man = ((u64)vf_man << (lz + 1)) >> (f64_exp_size + 1);
+                vp_man = ((u64)mu_man << (lz + 1)) >> (f64_exp_size + 1);
             } else {
                 /* Zero */
                 vp_exp = 0;
                 vp_man = 0;
             }
         }
-        else if (vf_exp == 3) {
+        else if (mu_exp == 3) {
             /* inline Inf/NaN - set exponent then left-justify the mantissa,
              * containing 0b0000 for infinity or 0b1000 for canonical NaN. */
             vp_exp = f64_exp_mask;
-            vp_man = (u64)vf_man << (f64_mant_size - 4);
+            vp_man = (u64)mu_man << (f64_mant_size - 4);
         }
         else {
             /* inline normal - adjust exponent bias from 2-bit bias 1 to
              * the IEEE 754 bias then left-justify the mantissa. */
-            vp_exp = f64_exp_bias + vf_exp - 1;
-            vp_man = (u64)vf_man << (f64_mant_size - 4);
+            vp_exp = f64_exp_bias + mu_exp - 1;
+            vp_man = (u64)mu_man << (f64_mant_size - 4);
         }
     }
     /* out-of-line little-endian exponent and mantissa */
@@ -1379,36 +1379,36 @@ f64_result vf_f64_read_byval(vf_buf *buf)
         } else {
             /* normal - if no exponent, mantissa is a fraction in the range
              * +/-0.9900.. with a unary prefix containing the exponent. */
-            if (vf_exp == 0) vr_exp = -tz - 1;
+            if (mu_exp == 0) vr_exp = -tz - 1;
             vp_exp = f64_exp_bias + vr_exp;
             vp_man = (u64)vr_man << (lz + 1) >> (f64_exp_size + 1);
         }
     }
 
-    v = f64_pack_float(f64_struct{vp_man, (u64)vp_exp, vf_sgn});
+    v = f64_pack_float(f64_struct{vp_man, (u64)vp_exp, mu_sgn});
 
 #if DEBUG_ENCODING
-    _vf_f64_debug(v, pre, vp_exp - f64_exp_bias, vp_man << 12, vr_exp, vr_man);
+    _mu_vf128_f64_resultdebug(v, pre, vp_exp - f64_exp_bias, vp_man << 12, vr_exp, vr_man);
 #endif
 
     return f64_result { v, 0 };
 }
 
-int vf_f64_write(vf_buf *buf, const double *value)
+int mu_vf128_f64_resultwrite(mu_buf *buf, const double *value)
 {
     s8 pre;
     double v = *value;
-    vf_f64_data d = vf_f64_data_get(v);
-    int vf_exp = 0;
-    int vf_man = 0;
+    mu_vf128_f64_resultdata d = mu_vf128_f64_resultdata_get(v);
+    int mu_exp = 0;
+    int mu_man = 0;
     u64 vw_man = 0;
     s64 vw_exp = 0;
 
     // Inf/NaN
     if (d.sexp == f64_exp_bias + 1) {
-        vf_exp = 3;
-        vf_man = (d.frac != 0) << 3;
-        pre = 0x80 | (d.sign << 6) | (vf_exp << 4) | vf_man;
+        mu_exp = 3;
+        mu_man = (d.frac != 0) << 3;
+        pre = 0x80 | (d.sign << 6) | (mu_exp << 4) | mu_man;
     }
     // Zero
     else if (d.sexp == -(s64)f64_exp_bias && d.frac == 0) {
@@ -1436,14 +1436,14 @@ int vf_f64_write(vf_buf *buf, const double *value)
         if (d.sexp == -(s64)f64_exp_bias) {
             vw_man = d.frac >> tz;
             vw_exp = d.sexp - lz - 1;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            vf_man = (u8)vf_le_ber_integer_u64_length_byval(vw_man);
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            mu_man = (u8)mu_le_ber_integer_u64_length_byval(vw_man);
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
         else if (d.frac == 0) {
             vw_exp = d.sexp;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            pre = (d.sign << 6) | (vf_exp << 4);
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            pre = (d.sign << 6) | (mu_exp << 4);
         }
         else if (d.sexp < 0 && d.sexp >= -8) {
             /*
@@ -1457,65 +1457,65 @@ int vf_f64_write(vf_buf *buf, const double *value)
             size_t sh = -d.sexp - 1;
             u64 vw_man_a = (d.frac >> tz) | (u64_msb >> (tz - 1));
             u64 vw_man_b = ((d.frac >> tz) << sh) | ((u64_msb >> (tz - 1)) << sh);
-            int vf_exp_a = (u8)vf_le_ber_integer_s64_length_byval(d.sexp);
-            int vf_man_a = (u8)vf_le_ber_integer_u64_length_byval(vw_man_a);
-            int vf_man_b = (u8)vf_le_ber_integer_u64_length_byval(vw_man_b);
-            if (vf_man_a + vf_exp_a < vf_man_b) {
+            int mu_exp_a = (u8)mu_le_ber_integer_s64_length_byval(d.sexp);
+            int mu_man_a = (u8)mu_le_ber_integer_u64_length_byval(vw_man_a);
+            int mu_man_b = (u8)mu_le_ber_integer_u64_length_byval(vw_man_b);
+            if (mu_man_a + mu_exp_a < mu_man_b) {
                 vw_man = vw_man_a;
                 vw_exp = d.sexp;
-                vf_exp = vf_exp_a;
-                vf_man = vf_man_a;
+                mu_exp = mu_exp_a;
+                mu_man = mu_man_a;
             } else {
                 vw_man = vw_man_b;
-                vf_man = vf_man_b;
+                mu_man = mu_man_b;
             }
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
         else {
             vw_man = (d.frac >> tz) | (u64_msb >> (tz - 1));
             vw_exp = d.sexp;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            vf_man = (u8)vf_le_ber_integer_u64_length_byval(vw_man);
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            mu_man = (u8)mu_le_ber_integer_u64_length_byval(vw_man);
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
-        /* vf_exp and vf_man contain length of exponent and fraction in bytes */
+        /* mu_exp and mu_man contain length of exponent and fraction in bytes */
     }
 
-    if (vf_buf_write_i8(buf, pre) != 1) {
+    if (mu_buf_write_i8(buf, pre) != 1) {
         return -1;
     }
 
     if ((pre & 0x80) == 0) {
-        if (vf_exp && vf_le_ber_integer_s64_write_byval(buf, vf_exp, vw_exp) < 0) {
+        if (mu_exp && mu_le_ber_integer_s64_write_byval(buf, mu_exp, vw_exp) < 0) {
             return -1;
         }
-        if (vf_man && vf_le_ber_integer_u64_write_byval(buf, vf_man, vw_man) < 0) {
+        if (mu_man && mu_le_ber_integer_u64_write_byval(buf, mu_man, vw_man) < 0) {
             return -1;
         }
     }
 
 #if DEBUG_ENCODING
-    _vf_f64_debug(v, pre, d.sexp, d.frac, vw_exp, vw_man);
+    _mu_vf128_f64_resultdebug(v, pre, d.sexp, d.frac, vw_exp, vw_man);
 #endif
 
     return 0;
 }
 
-int vf_f64_write_byval(vf_buf *buf, const double value)
+int mu_vf128_f64_resultwrite_byval(mu_buf *buf, const double value)
 {
     s8 pre;
     const double v = value;
-    vf_f64_data d = vf_f64_data_get(v);
-    int vf_exp = 0;
-    int vf_man = 0;
+    mu_vf128_f64_resultdata d = mu_vf128_f64_resultdata_get(v);
+    int mu_exp = 0;
+    int mu_man = 0;
     u64 vw_man = 0;
     s64 vw_exp = 0;
 
     // Inf/NaN
     if (d.sexp == f64_exp_bias + 1) {
-        vf_exp = 3;
-        vf_man = (d.frac != 0) << 3;
-        pre = 0x80 | (d.sign << 6) | (vf_exp << 4) | vf_man;
+        mu_exp = 3;
+        mu_man = (d.frac != 0) << 3;
+        pre = 0x80 | (d.sign << 6) | (mu_exp << 4) | mu_man;
     }
     // Zero
     else if (d.sexp == -(s64)f64_exp_bias && d.frac == 0) {
@@ -1543,14 +1543,14 @@ int vf_f64_write_byval(vf_buf *buf, const double value)
         if (d.sexp == -(s64)f64_exp_bias) {
             vw_man = d.frac >> tz;
             vw_exp = d.sexp - lz - 1;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            vf_man = (u8)vf_le_ber_integer_u64_length_byval(vw_man);
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            mu_man = (u8)mu_le_ber_integer_u64_length_byval(vw_man);
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
         else if (d.frac == 0) {
             vw_exp = d.sexp;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            pre = (d.sign << 6) | (vf_exp << 4);
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            pre = (d.sign << 6) | (mu_exp << 4);
         }
         else if (d.sexp < 0 && d.sexp >= -8) {
             /*
@@ -1564,45 +1564,45 @@ int vf_f64_write_byval(vf_buf *buf, const double value)
             size_t sh = -d.sexp - 1;
             u64 vw_man_a = (d.frac >> tz) | (u64_msb >> (tz - 1));
             u64 vw_man_b = ((d.frac >> tz) << sh) | ((u64_msb >> (tz - 1)) << sh);
-            int vf_exp_a = (u8)vf_le_ber_integer_s64_length_byval(d.sexp);
-            int vf_man_a = (u8)vf_le_ber_integer_u64_length_byval(vw_man_a);
-            int vf_man_b = (u8)vf_le_ber_integer_u64_length_byval(vw_man_b);
-            if (vf_man_a + vf_exp_a < vf_man_b) {
+            int mu_exp_a = (u8)mu_le_ber_integer_s64_length_byval(d.sexp);
+            int mu_man_a = (u8)mu_le_ber_integer_u64_length_byval(vw_man_a);
+            int mu_man_b = (u8)mu_le_ber_integer_u64_length_byval(vw_man_b);
+            if (mu_man_a + mu_exp_a < mu_man_b) {
                 vw_man = vw_man_a;
                 vw_exp = d.sexp;
-                vf_exp = vf_exp_a;
-                vf_man = vf_man_a;
+                mu_exp = mu_exp_a;
+                mu_man = mu_man_a;
             } else {
                 vw_man = vw_man_b;
-                vf_man = vf_man_b;
+                mu_man = mu_man_b;
             }
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
         else {
             vw_man = (d.frac >> tz) | (u64_msb >> (tz - 1));
             vw_exp = d.sexp;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            vf_man = (u8)vf_le_ber_integer_u64_length_byval(vw_man);
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            mu_man = (u8)mu_le_ber_integer_u64_length_byval(vw_man);
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
-        /* vf_exp and vf_man contain length of exponent and fraction in bytes */
+        /* mu_exp and mu_man contain length of exponent and fraction in bytes */
     }
 
-    if (vf_buf_write_i8(buf, pre) != 1) {
+    if (mu_buf_write_i8(buf, pre) != 1) {
         return -1;
     }
 
     if ((pre & 0x80) == 0) {
-        if (vf_exp && vf_le_ber_integer_s64_write_byval(buf, vf_exp, vw_exp) < 0) {
+        if (mu_exp && mu_le_ber_integer_s64_write_byval(buf, mu_exp, vw_exp) < 0) {
             return -1;
         }
-        if (vf_man && vf_le_ber_integer_u64_write_byval(buf, vf_man, vw_man) < 0) {
+        if (mu_man && mu_le_ber_integer_u64_write_byval(buf, mu_man, vw_man) < 0) {
             return -1;
         }
     }
 
 #if DEBUG_ENCODING
-    _vf_f64_debug(v, pre, d.sexp, d.frac, vw_exp, vw_man);
+    _mu_vf128_f64_resultdebug(v, pre, d.sexp, d.frac, vw_exp, vw_man);
 #endif
 
     return 0;
@@ -1613,10 +1613,10 @@ int vf_f64_write_byval(vf_buf *buf, const double value)
  */
 
 /*
- * vf_f32_data contains fraction, signed exponent, their
+ * mu_vf128_f32_resultdata contains fraction, signed exponent, their
  * encoded lengths and flags for sign, infinity, nan and zero.
  */
-struct vf_f32_data
+struct mu_vf128_f32_resultdata
 {
     bool sign;
     s32 sexp;
@@ -1626,76 +1626,76 @@ struct vf_f32_data
 /*
  * extract exponent and left-justified fraction
  */
-static vf_f32_data vf_f32_data_get(float value)
+static mu_vf128_f32_resultdata mu_vf128_f32_resultdata_get(float value)
 {
     bool sign = !!f32_sign_dec(value);
     s32 sexp = (s32)(f32_exp_dec(value) - f32_exp_bias);
     u32 frac = (u32)f32_mant_dec(value) << (f32_exp_size + 1);
 
-    return vf_f32_data { sign, sexp, frac };
+    return mu_vf128_f32_resultdata { sign, sexp, frac };
 }
 
 #if DEBUG_ENCODING
-static void _vf_f32_debug(float v, u8 pre, s32 vp_exp, u32 vp_man, s32 vd_exp, u32 vd_man)
+static void _mu_vf128_f32_resultdebug(float v, u8 pre, s32 vp_exp, u32 vp_man, s32 vd_exp, u32 vd_man)
 {
-    bool vf_inl = (pre >> 7) & 1;
-    bool vf_sgn = (pre >> 6) & 1;
-    int vf_exp = (pre >> 4) & 3;
-    int vf_man = pre & 15;
+    bool mu_inl = (pre >> 7) & 1;
+    bool mu_sgn = (pre >> 6) & 1;
+    int mu_exp = (pre >> 4) & 3;
+    int mu_man = pre & 15;
 
     printf("\n%9s %20s -> %18s %5s -> %1s %1s %2s %4s %4s\n",
         "value (dec)", "value (hex)", "fraction", "exp",
         "i", "s", "ex", "mant", "len");
     printf("%8f %20a    0x%08x %05d    %1u %1u %c%c %c%c%c%c",
-        v, v, vp_man, vp_exp, vf_inl, vf_sgn,
-        '0' + ((vf_exp >> 1) & 1),
-        '0' + ((vf_exp >> 0) & 1),
-        '0' + ((vf_man >> 3) & 1),
-        '0' + ((vf_man >> 2) & 1),
-        '0' + ((vf_man >> 1) & 1),
-        '0' + ((vf_man >> 0) & 1));
+        v, v, vp_man, vp_exp, mu_inl, mu_sgn,
+        '0' + ((mu_exp >> 1) & 1),
+        '0' + ((mu_exp >> 0) & 1),
+        '0' + ((mu_man >> 3) & 1),
+        '0' + ((mu_man >> 2) & 1),
+        '0' + ((mu_man >> 1) & 1),
+        '0' + ((mu_man >> 0) & 1));
 
-    printf(" [%02d] { pre=0x%02hhx", 1 + (vf_inl ? 0 : vf_exp + vf_man), pre);
-    if (!vf_inl && vf_man) {
+    printf(" [%02d] { pre=0x%02hhx", 1 + (mu_inl ? 0 : mu_exp + mu_man), pre);
+    if (!mu_inl && mu_man) {
         printf(" man=0x%02x", vd_man);
     }
-    if (!vf_inl && vf_exp) {
+    if (!mu_inl && mu_exp) {
         printf(" exp=%d", vd_exp);
     }
     printf(" }\n");
 }
 #endif
 
-int vf_f32_read(vf_buf *buf, float *value)
+int mu_vf128_f32_resultread(mu_buf *buf, float *value)
 {
     s8 pre;
     float v = 0;
-    bool vf_inl;
-    bool vf_sgn;
-    int vf_exp;
-    int vf_man;
+    bool mu_inl;
+    bool mu_sgn;
+    int mu_exp;
+    int mu_man;
     u32 vr_man = 0;
     s32 vr_exp = 0;
     u32 vp_man = 0;
     s32 vp_exp = 0;
 
-    if (vf_buf_read_i8(buf, &pre) != 1) {
+    if (mu_buf_read_i8(buf, &pre) != 1) {
         goto err;
     }
 
-    vf_inl = (pre >> 7) & 1;
-    vf_sgn = (pre >> 6) & 1;
-    vf_exp = (pre >> 4) & 3;
-    vf_man = pre & 15;
+    mu_inl = (pre >> 7) & 1;
+    mu_sgn = (pre >> 6) & 1;
+    mu_exp = (pre >> 4) & 3;
+    mu_man = pre & 15;
 
-    if (!vf_inl) {
-        if (vf_exp) {
-            s64_result r = vf_le_ber_integer_s64_read_byval(buf, vf_exp);
+    if (!mu_inl) {
+        if (mu_exp) {
+            s64_result r = mu_le_ber_integer_s64_read_byval(buf, mu_exp);
             if (r.error < 0) goto err;
             vr_exp = (s32)r.value;
         }
-        if (vf_man) {
-            u64_result r = vf_le_ber_integer_u64_read_byval(buf, vf_man);
+        if (mu_man) {
+            u64_result r = mu_le_ber_integer_u64_read_byval(buf, mu_man);
             if (r.error < 0) goto err;
 
             /* if there are less than 32 leading zeros, then we must
@@ -1707,33 +1707,33 @@ int vf_f32_read(vf_buf *buf, float *value)
     }
 
     /* inline exponent and mantissa using float7 */
-    if (vf_inl) {
-        if (vf_exp == 0) {
-            if (vf_man > 0) {
-                size_t lz = clz((u32)vf_man);
+    if (mu_inl) {
+        if (mu_exp == 0) {
+            if (mu_man > 0) {
+                size_t lz = clz((u32)mu_man);
                 /* inline subnormal - normalize by calculating exponent
                  * based on the leading zero count for the 4 bits right
                  * of the point hence 27 = (31 - 4) then left-justify
                  * the mantissa and truncate the leading 1. */
                 vp_exp = f32_exp_bias + 27 - (u32)lz;
-                vp_man = ((u32)vf_man << (lz + 1)) >> (f32_exp_size + 1);
+                vp_man = ((u32)mu_man << (lz + 1)) >> (f32_exp_size + 1);
             } else {
                 /* Zero */
                 vp_exp = 0;
                 vp_man = 0;
             }
         }
-        else if (vf_exp == 3) {
+        else if (mu_exp == 3) {
             /* inline Inf/NaN - set exponent then left-justify the mantissa,
              * containing 0b0000 for infinity or 0b1000 for canonical NaN. */
             vp_exp = f32_exp_mask;
-            vp_man = (u32)vf_man << (f32_mant_size - 4);
+            vp_man = (u32)mu_man << (f32_mant_size - 4);
         }
         else {
             /* inline normal - adjust exponent bias from 2-bit bias 1 to
              * the IEEE 754 bias then left-justify the mantissa. */
-            vp_exp = f32_exp_bias + vf_exp - 1;
-            vp_man = (u32)vf_man << (f32_mant_size - 4);
+            vp_exp = f32_exp_bias + mu_exp - 1;
+            vp_man = (u32)mu_man << (f32_mant_size - 4);
         }
     }
     /* out-of-line little-endian exponent and mantissa */
@@ -1749,17 +1749,17 @@ int vf_f32_read(vf_buf *buf, float *value)
         } else {
             /* normal - if no exponent, mantissa is a fraction in the range
              * +/-0.9900.. with a unary prefix containing the exponent. */
-            if (vf_exp == 0) vr_exp = -(s32)tz - 1;
+            if (mu_exp == 0) vr_exp = -(s32)tz - 1;
             vp_exp = f32_exp_bias + vr_exp;
             vp_man = (u32)vr_man << (lz + 1) >> (f32_exp_size + 1);
         }
     }
 
-    v = f32_pack_float(f32_struct{vp_man, (u32)vp_exp, vf_sgn});
+    v = f32_pack_float(f32_struct{vp_man, (u32)vp_exp, mu_sgn});
     *value = v;
 
 #if DEBUG_ENCODING
-    _vf_f32_debug(v, pre, vp_exp - f32_exp_bias, vp_man << 9, vr_exp, vr_man);
+    _mu_vf128_f32_resultdebug(v, pre, vp_exp - f32_exp_bias, vp_man << 9, vr_exp, vr_man);
 #endif
 
     return 0;
@@ -1773,36 +1773,36 @@ enum : u32 {
     u32_msn = 0xf0000000u
 };
 
-f32_result vf_f32_read_byval(vf_buf *buf)
+f32_result mu_vf128_f32_resultread_byval(mu_buf *buf)
 {
     s8 pre;
     float v = 0;
-    bool vf_inl;
-    bool vf_sgn;
-    int vf_exp;
-    int vf_man;
+    bool mu_inl;
+    bool mu_sgn;
+    int mu_exp;
+    int mu_man;
     u32 vr_man = 0;
     s32 vr_exp = 0;
     u32 vp_man = 0;
     s32 vp_exp = 0;
 
-    if (vf_buf_read_i8(buf, &pre) != 1) {
+    if (mu_buf_read_i8(buf, &pre) != 1) {
         return f32_result { 0, -1 };
     }
 
-    vf_inl = (pre >> 7) & 1;
-    vf_sgn = (pre >> 6) & 1;
-    vf_exp = (pre >> 4) & 3;
-    vf_man = pre & 15;
+    mu_inl = (pre >> 7) & 1;
+    mu_sgn = (pre >> 6) & 1;
+    mu_exp = (pre >> 4) & 3;
+    mu_man = pre & 15;
 
-    if (!vf_inl) {
-        if (vf_exp) {
-            s64_result r = vf_le_ber_integer_s64_read_byval(buf, vf_exp);
+    if (!mu_inl) {
+        if (mu_exp) {
+            s64_result r = mu_le_ber_integer_s64_read_byval(buf, mu_exp);
             if (r.error < 0) return f32_result { 0, (s32)r.error };
             vr_exp = (s32)r.value;
         }
-        if (vf_man) {
-            u64_result r = vf_le_ber_integer_u64_read_byval(buf, vf_man);
+        if (mu_man) {
+            u64_result r = mu_le_ber_integer_u64_read_byval(buf, mu_man);
             if (r.error < 0) return f32_result { 0, (s32)r.error };
 
             /* if there are less than 32 leading zeros, then we must
@@ -1814,33 +1814,33 @@ f32_result vf_f32_read_byval(vf_buf *buf)
     }
 
     /* inline exponent and mantissa using float7 */
-    if (vf_inl) {
-        if (vf_exp == 0) {
-            if (vf_man > 0) {
-                size_t lz = clz((u32)vf_man);
+    if (mu_inl) {
+        if (mu_exp == 0) {
+            if (mu_man > 0) {
+                size_t lz = clz((u32)mu_man);
                 /* inline subnormal - normalize by calculating exponent
                  * based on the leading zero count for the 4 bits right
                  * of the point hence 27 = (31 - 4) then left-justify
                  * the mantissa and truncate the leading 1. */
                 vp_exp = f32_exp_bias + 27 - (u32)lz;
-                vp_man = ((u32)vf_man << (lz + 1)) >> (f32_exp_size + 1);
+                vp_man = ((u32)mu_man << (lz + 1)) >> (f32_exp_size + 1);
             } else {
                 /* Zero */
                 vp_exp = 0;
                 vp_man = 0;
             }
         }
-        else if (vf_exp == 3) {
+        else if (mu_exp == 3) {
             /* inline Inf/NaN - set exponent then left-justify the mantissa,
              * containing 0b0000 for infinity or 0b1000 for canonical NaN. */
             vp_exp = f32_exp_mask;
-            vp_man = (u32)vf_man << (f32_mant_size - 4);
+            vp_man = (u32)mu_man << (f32_mant_size - 4);
         }
         else {
             /* inline normal - adjust exponent bias from 2-bit bias 1 to
              * the IEEE 754 bias then left-justify the mantissa. */
-            vp_exp = f32_exp_bias + vf_exp - 1;
-            vp_man = (u32)vf_man << (f32_mant_size - 4);
+            vp_exp = f32_exp_bias + mu_exp - 1;
+            vp_man = (u32)mu_man << (f32_mant_size - 4);
         }
     }
     /* out-of-line little-endian exponent and mantissa */
@@ -1856,36 +1856,36 @@ f32_result vf_f32_read_byval(vf_buf *buf)
         } else {
             /* normal - if no exponent, mantissa is a fraction in the range
              * +/-0.9900.. with a unary prefix containing the exponent. */
-            if (vf_exp == 0) vr_exp = -(s32)tz - 1;
+            if (mu_exp == 0) vr_exp = -(s32)tz - 1;
             vp_exp = f32_exp_bias + vr_exp;
             vp_man = (u32)vr_man << (lz + 1) >> (f32_exp_size + 1);
         }
     }
 
-    v = f32_pack_float(f32_struct{vp_man, (u32)vp_exp, vf_sgn});
+    v = f32_pack_float(f32_struct{vp_man, (u32)vp_exp, mu_sgn});
 
 #if DEBUG_ENCODING
-    _vf_f32_debug(v, pre, vp_exp - f32_exp_bias, vp_man << 9, vr_exp, vr_man);
+    _mu_vf128_f32_resultdebug(v, pre, vp_exp - f32_exp_bias, vp_man << 9, vr_exp, vr_man);
 #endif
 
     return f32_result { v, 0 };
 }
 
-int vf_f32_write(vf_buf *buf, const float *value)
+int mu_vf128_f32_resultwrite(mu_buf *buf, const float *value)
 {
     s8 pre;
     float v = *value;
-    vf_f32_data d = vf_f32_data_get(v);
-    int vf_exp = 0;
-    int vf_man = 0;
+    mu_vf128_f32_resultdata d = mu_vf128_f32_resultdata_get(v);
+    int mu_exp = 0;
+    int mu_man = 0;
     u32 vw_man = 0;
     s32 vw_exp = 0;
 
     // Inf/NaN
     if (d.sexp == f32_exp_bias + 1) {
-        vf_exp = 3;
-        vf_man = (d.frac != 0) << 3;
-        pre = 0x80 | (d.sign << 6) | (vf_exp << 4) | vf_man;
+        mu_exp = 3;
+        mu_man = (d.frac != 0) << 3;
+        pre = 0x80 | (d.sign << 6) | (mu_exp << 4) | mu_man;
     }
     // Zero
     else if (d.sexp == -(s32)f32_exp_bias && d.frac == 0) {
@@ -1913,14 +1913,14 @@ int vf_f32_write(vf_buf *buf, const float *value)
         if (d.sexp == -(s32)f32_exp_bias) {
             vw_man = d.frac >> tz;
             vw_exp = d.sexp - (u32)lz - 1;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            vf_man = (u8)vf_le_ber_integer_u64_length_byval(vw_man);
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            mu_man = (u8)mu_le_ber_integer_u64_length_byval(vw_man);
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
         else if (d.frac == 0) {
             vw_exp = d.sexp;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            pre = (d.sign << 6) | (vf_exp << 4);
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            pre = (d.sign << 6) | (mu_exp << 4);
         }
         else if (d.sexp < 0 && d.sexp >= -8) {
             /*
@@ -1934,65 +1934,65 @@ int vf_f32_write(vf_buf *buf, const float *value)
             size_t sh = -d.sexp - 1;
             u32 vw_man_a = (d.frac >> tz) | (u32_msb >> (tz - 1));
             u32 vw_man_b = ((d.frac >> tz) << sh) | ((u32_msb >> (tz - 1)) << sh);
-            int vf_exp_a = (u8)vf_le_ber_integer_s64_length_byval(d.sexp);
-            int vf_man_a = (u8)vf_le_ber_integer_u64_length_byval(vw_man_a);
-            int vf_man_b = (u8)vf_le_ber_integer_u64_length_byval(vw_man_b);
-            if (vf_man_a + vf_exp_a < vf_man_b) {
+            int mu_exp_a = (u8)mu_le_ber_integer_s64_length_byval(d.sexp);
+            int mu_man_a = (u8)mu_le_ber_integer_u64_length_byval(vw_man_a);
+            int mu_man_b = (u8)mu_le_ber_integer_u64_length_byval(vw_man_b);
+            if (mu_man_a + mu_exp_a < mu_man_b) {
                 vw_man = vw_man_a;
                 vw_exp = d.sexp;
-                vf_exp = vf_exp_a;
-                vf_man = vf_man_a;
+                mu_exp = mu_exp_a;
+                mu_man = mu_man_a;
             } else {
                 vw_man = vw_man_b;
-                vf_man = vf_man_b;
+                mu_man = mu_man_b;
             }
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
         else {
             vw_man = (d.frac >> tz) | (u32_msb >> (tz - 1));
             vw_exp = d.sexp;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            vf_man = (u8)vf_le_ber_integer_u64_length_byval(vw_man);
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            mu_man = (u8)mu_le_ber_integer_u64_length_byval(vw_man);
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
-        /* vf_exp and vf_man contain length of exponent and fraction in bytes */
+        /* mu_exp and mu_man contain length of exponent and fraction in bytes */
     }
 
-    if (vf_buf_write_i8(buf, pre) != 1) {
+    if (mu_buf_write_i8(buf, pre) != 1) {
         return -1;
     }
 
     if ((pre & 0x80) == 0) {
-        if (vf_exp && vf_le_ber_integer_s64_write_byval(buf, vf_exp, vw_exp) < 0) {
+        if (mu_exp && mu_le_ber_integer_s64_write_byval(buf, mu_exp, vw_exp) < 0) {
             return -1;
         }
-        if (vf_man && vf_le_ber_integer_u64_write_byval(buf, vf_man, vw_man) < 0) {
+        if (mu_man && mu_le_ber_integer_u64_write_byval(buf, mu_man, vw_man) < 0) {
             return -1;
         }
     }
 
 #if DEBUG_ENCODING
-    _vf_f32_debug(v, pre, d.sexp, d.frac, vw_exp, vw_man);
+    _mu_vf128_f32_resultdebug(v, pre, d.sexp, d.frac, vw_exp, vw_man);
 #endif
 
     return 0;
 }
 
-int vf_f32_write_byval(vf_buf *buf, const float value)
+int mu_vf128_f32_resultwrite_byval(mu_buf *buf, const float value)
 {
     s8 pre;
     const float v = value;
-    vf_f32_data d = vf_f32_data_get(v);
-    int vf_exp = 0;
-    int vf_man = 0;
+    mu_vf128_f32_resultdata d = mu_vf128_f32_resultdata_get(v);
+    int mu_exp = 0;
+    int mu_man = 0;
     u32 vw_man = 0;
     s32 vw_exp = 0;
 
     // Inf/NaN
     if (d.sexp == f32_exp_bias + 1) {
-        vf_exp = 3;
-        vf_man = (d.frac != 0) << 3;
-        pre = 0x80 | (d.sign << 6) | (vf_exp << 4) | vf_man;
+        mu_exp = 3;
+        mu_man = (d.frac != 0) << 3;
+        pre = 0x80 | (d.sign << 6) | (mu_exp << 4) | mu_man;
     }
     // Zero
     else if (d.sexp == -(s32)f32_exp_bias && d.frac == 0) {
@@ -2020,14 +2020,14 @@ int vf_f32_write_byval(vf_buf *buf, const float value)
         if (d.sexp == -(s32)f32_exp_bias) {
             vw_man = d.frac >> tz;
             vw_exp = d.sexp - (u32)lz - 1;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            vf_man = (u8)vf_le_ber_integer_u64_length_byval(vw_man);
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            mu_man = (u8)mu_le_ber_integer_u64_length_byval(vw_man);
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
         else if (d.frac == 0) {
             vw_exp = d.sexp;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            pre = (d.sign << 6) | (vf_exp << 4);
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            pre = (d.sign << 6) | (mu_exp << 4);
         }
         else if (d.sexp < 0 && d.sexp >= -8) {
             /*
@@ -2041,78 +2041,78 @@ int vf_f32_write_byval(vf_buf *buf, const float value)
             size_t sh = -d.sexp - 1;
             u32 vw_man_a = (d.frac >> tz) | (u32_msb >> (tz - 1));
             u32 vw_man_b = ((d.frac >> tz) << sh) | ((u32_msb >> (tz - 1)) << sh);
-            int vf_exp_a = (u8)vf_le_ber_integer_s64_length_byval(d.sexp);
-            int vf_man_a = (u8)vf_le_ber_integer_u64_length_byval(vw_man_a);
-            int vf_man_b = (u8)vf_le_ber_integer_u64_length_byval(vw_man_b);
-            if (vf_man_a + vf_exp_a < vf_man_b) {
+            int mu_exp_a = (u8)mu_le_ber_integer_s64_length_byval(d.sexp);
+            int mu_man_a = (u8)mu_le_ber_integer_u64_length_byval(vw_man_a);
+            int mu_man_b = (u8)mu_le_ber_integer_u64_length_byval(vw_man_b);
+            if (mu_man_a + mu_exp_a < mu_man_b) {
                 vw_man = vw_man_a;
                 vw_exp = d.sexp;
-                vf_exp = vf_exp_a;
-                vf_man = vf_man_a;
+                mu_exp = mu_exp_a;
+                mu_man = mu_man_a;
             } else {
                 vw_man = vw_man_b;
-                vf_man = vf_man_b;
+                mu_man = mu_man_b;
             }
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
         else {
             vw_man = (d.frac >> tz) | (u32_msb >> (tz - 1));
             vw_exp = d.sexp;
-            vf_exp = (u8)vf_le_ber_integer_s64_length_byval(vw_exp);
-            vf_man = (u8)vf_le_ber_integer_u64_length_byval(vw_man);
-            pre = (d.sign << 6) | (vf_exp << 4) | vf_man;
+            mu_exp = (u8)mu_le_ber_integer_s64_length_byval(vw_exp);
+            mu_man = (u8)mu_le_ber_integer_u64_length_byval(vw_man);
+            pre = (d.sign << 6) | (mu_exp << 4) | mu_man;
         }
-        /* vf_exp and vf_man contain length of exponent and fraction in bytes */
+        /* mu_exp and mu_man contain length of exponent and fraction in bytes */
     }
 
-    if (vf_buf_write_i8(buf, pre) != 1) {
+    if (mu_buf_write_i8(buf, pre) != 1) {
         return -1;
     }
 
     if ((pre & 0x80) == 0) {
-        if (vf_exp && vf_le_ber_integer_s64_write_byval(buf, vf_exp, vw_exp) < 0) {
+        if (mu_exp && mu_le_ber_integer_s64_write_byval(buf, mu_exp, vw_exp) < 0) {
             return -1;
         }
-        if (vf_man && vf_le_ber_integer_u64_write_byval(buf, vf_man, vw_man) < 0) {
+        if (mu_man && mu_le_ber_integer_u64_write_byval(buf, mu_man, vw_man) < 0) {
             return -1;
         }
     }
 
 #if DEBUG_ENCODING
-    _vf_f32_debug(v, pre, d.sexp, d.frac, vw_exp, vw_man);
+    _mu_vf128_f32_resultdebug(v, pre, d.sexp, d.frac, vw_exp, vw_man);
 #endif
 
     return 0;
 }
 
-int vf_f64_read_vec(vf_buf *buf, double *value, size_t count)
+int mu_vf128_f64_resultread_vec(mu_buf *buf, double *value, size_t count)
 {
     for (size_t i = 0; i < count; i++) {
-        if (vf_f64_read(buf, value + i) < 0) return -1;
+        if (mu_vf128_f64_resultread(buf, value + i) < 0) return -1;
     }
     return 0;
 }
 
-int vf_f64_write_vec(vf_buf *buf, const double *value, size_t count)
+int mu_vf128_f64_resultwrite_vec(mu_buf *buf, const double *value, size_t count)
 {
     for (size_t i = 0; i < count; i++) {
-        if (vf_f64_write(buf, value + i) < 0) return -1;
+        if (mu_vf128_f64_resultwrite(buf, value + i) < 0) return -1;
     }
     return 0;
 }
 
-int vf_f32_read_vec(vf_buf *buf, float *value, size_t count)
+int mu_vf128_f32_resultread_vec(mu_buf *buf, float *value, size_t count)
 {
     for (size_t i = 0; i < count; i++) {
-        if (vf_f32_read(buf, value + i) < 0) return -1;
+        if (mu_vf128_f32_resultread(buf, value + i) < 0) return -1;
     }
     return 0;
 }
 
-int vf_f32_write_vec(vf_buf *buf, const float *value, size_t count)
+int mu_vf128_f32_resultwrite_vec(mu_buf *buf, const float *value, size_t count)
 {
     for (size_t i = 0; i < count; i++) {
-        if (vf_f32_write(buf, value + i) < 0) return -1;
+        if (mu_vf128_f32_resultwrite(buf, value + i) < 0) return -1;
     }
     return 0;
 }
@@ -2121,99 +2121,99 @@ int vf_f32_write_vec(vf_buf *buf, const float *value, size_t count)
  * IEEE 754
  */
 
-int ieee754_f64_read(vf_buf *buf, double *value)
+int mu_ieee754_f64_read(mu_buf *buf, double *value)
 {
-    if (vf_buf_read_i64(buf, (int64_t*)value) != sizeof(f64)) {
+    if (mu_buf_read_i64(buf, (int64_t*)value) != sizeof(f64)) {
         return -1;
     }
     return 0;
 }
 
-int ieee754_f64_write(vf_buf *buf, const double *value)
+int mu_ieee754_f64_write(mu_buf *buf, const double *value)
 {
-    if (vf_buf_write_i64(buf, (int64_t)f64_to_bits(*value)) != sizeof(f64)) {
+    if (mu_buf_write_i64(buf, (int64_t)f64_to_bits(*value)) != sizeof(f64)) {
         return -1;
     }
     return 0;
 }
 
-struct f64_result ieee754_f64_read_byval(vf_buf *buf)
+struct f64_result mu_ieee754_f64_read_byval(mu_buf *buf)
 {
     f64 v;
-    if (vf_buf_read_i64(buf, (int64_t*)&v) != sizeof(f64)) {
+    if (mu_buf_read_i64(buf, (int64_t*)&v) != sizeof(f64)) {
         return f64_result { 0, -1 };
     }
     return f64_result { v, 0 };
 }
 
-int ieee754_f64_write_byval(vf_buf *buf, const double value)
+int mu_ieee754_f64_write_byval(mu_buf *buf, const double value)
 {
-    if (vf_buf_write_i64(buf, (int64_t)f64_to_bits(value)) != sizeof(f64)) {
+    if (mu_buf_write_i64(buf, (int64_t)f64_to_bits(value)) != sizeof(f64)) {
         return -1;
     }
     return 0;
 }
 
-int ieee754_f64_read_vec(vf_buf *buf, double *value, size_t count)
+int mu_ieee754_f64_read_vec(mu_buf *buf, double *value, size_t count)
 {
-    if (vf_buf_read_vec_i64(buf, (int64_t*)value, count) != sizeof(f32) * count) {
+    if (mu_buf_read_vec_i64(buf, (int64_t*)value, count) != sizeof(f32) * count) {
         return -1;
     }
     return 0;
 }
 
-int ieee754_f64_write_vec(vf_buf *buf, const double *value, size_t count)
+int mu_ieee754_f64_write_vec(mu_buf *buf, const double *value, size_t count)
 {
-    if (vf_buf_write_vec_i64(buf, (const int64_t*)value, count) != sizeof(f32) * count) {
+    if (mu_buf_write_vec_i64(buf, (const int64_t*)value, count) != sizeof(f32) * count) {
         return -1;
     }
     return 0;
 }
 
-int ieee754_f32_read(vf_buf *buf, float *value)
+int mu_ieee754_f32_read(mu_buf *buf, float *value)
 {
-    if (vf_buf_read_i32(buf, (int32_t*)value) != sizeof(f32)) {
+    if (mu_buf_read_i32(buf, (int32_t*)value) != sizeof(f32)) {
         return -1;
     }
     return 0;
 }
 
-int ieee754_f32_write(vf_buf *buf, const float *value)
+int mu_ieee754_f32_write(mu_buf *buf, const float *value)
 {
-    if (vf_buf_write_i32(buf, (int32_t)f32_to_bits(*value)) != sizeof(f32)) {
+    if (mu_buf_write_i32(buf, (int32_t)f32_to_bits(*value)) != sizeof(f32)) {
         return -1;
     }
     return 0;
 }
 
-struct f32_result ieee754_f32_read_byval(vf_buf *buf)
+struct f32_result mu_ieee754_f32_read_byval(mu_buf *buf)
 {
     f32 v;
-    if (vf_buf_read_i32(buf, (int32_t*)&v) != sizeof(f32)) {
+    if (mu_buf_read_i32(buf, (int32_t*)&v) != sizeof(f32)) {
         return f32_result { 0, -1 };
     }
     return f32_result { v, 0 };
 }
 
-int ieee754_f32_write_byval(vf_buf *buf, const float value)
+int mu_ieee754_f32_write_byval(mu_buf *buf, const float value)
 {
-    if (vf_buf_write_i32(buf, (int32_t)f32_to_bits(value)) != sizeof(f32)) {
+    if (mu_buf_write_i32(buf, (int32_t)f32_to_bits(value)) != sizeof(f32)) {
         return -1;
     }
     return 0;
 }
 
-int ieee754_f32_read_vec(vf_buf *buf, float *value, size_t count)
+int mu_ieee754_f32_read_vec(mu_buf *buf, float *value, size_t count)
 {
-    if (vf_buf_read_vec_i32(buf, (int32_t*)value, count) != sizeof(f32) * count) {
+    if (mu_buf_read_vec_i32(buf, (int32_t*)value, count) != sizeof(f32) * count) {
         return -1;
     }
     return 0;
 }
 
-int ieee754_f32_write_vec(vf_buf *buf, const float *value, size_t count)
+int mu_ieee754_f32_write_vec(mu_buf *buf, const float *value, size_t count)
 {
-    if (vf_buf_write_vec_i32(buf, (const int32_t*)value, count) != sizeof(f32) * count) {
+    if (mu_buf_write_vec_i32(buf, (const int32_t*)value, count) != sizeof(f32) * count) {
         return -1;
     }
     return 0;
@@ -2223,14 +2223,14 @@ int ieee754_f32_write_vec(vf_buf *buf, const float *value, size_t count)
  * LEB128
  */
 
-int leb_u64_read(vf_buf *buf, u64 *value)
+int mu_leb_u64_read(mu_buf *buf, u64 *value)
 {
     int8_t b;
     size_t w = 0;
     u64 v = 0;
 
     do {
-        if (vf_buf_read_i8(buf, &b) != 1) {
+        if (mu_buf_read_i8(buf, &b) != 1) {
             goto err;
         }
         v |= ((u64)b & 0x7f) << w;
@@ -2248,14 +2248,14 @@ err:
     return -1;
 }
 
-u64_result leb_u64_read_byval(vf_buf *buf)
+u64_result mu_leb_u64_read_byval(mu_buf *buf)
 {
     int8_t b;
     size_t w = 0;
     u64 v = 0;
 
     do {
-        if (vf_buf_read_i8(buf, &b) != 1) {
+        if (mu_buf_read_i8(buf, &b) != 1) {
             return u64_result { 0, -1 };
         }
         v |= ((u64)b & 0x7f) << w;
@@ -2269,7 +2269,7 @@ u64_result leb_u64_read_byval(vf_buf *buf)
     return u64_result { v, 0 };
 }
 
-int leb_u64_write(vf_buf *buf, const u64 *value)
+int mu_leb_u64_write(mu_buf *buf, const u64 *value)
 {
     size_t len, i;
     u64 x = *value;
@@ -2284,19 +2284,19 @@ int leb_u64_write(vf_buf *buf, const u64 *value)
         return -1;
     }
     for (i = 0; i < len - 1; i++) {
-        if (vf_buf_write_unchecked_i8(buf, ((x & 0x7f) | 0x80)) != 1) {
+        if (mu_buf_write_unchecked_i8(buf, ((x & 0x7f) | 0x80)) != 1) {
             return -1;
         }
         x >>= 7;
     }
-    if (vf_buf_write_unchecked_i8(buf, (x & 0x7f)) != 1) {
+    if (mu_buf_write_unchecked_i8(buf, (x & 0x7f)) != 1) {
         return -1;
     }
 
     return 0;
 }
 
-int leb_u64_write_byval(vf_buf *buf, const u64 value)
+int mu_leb_u64_write_byval(mu_buf *buf, const u64 value)
 {
     size_t len, i;
     u64 x = value;
@@ -2311,12 +2311,12 @@ int leb_u64_write_byval(vf_buf *buf, const u64 value)
         return -1;
     }
     for (i = 0; i < len - 1; i++) {
-        if (vf_buf_write_unchecked_i8(buf, ((x & 0x7f) | 0x80)) != 1) {
+        if (mu_buf_write_unchecked_i8(buf, ((x & 0x7f) | 0x80)) != 1) {
             return -1;
         }
         x >>= 7;
     }
-    if (vf_buf_write_unchecked_i8(buf, (x & 0x7f)) != 1) {
+    if (mu_buf_write_unchecked_i8(buf, (x & 0x7f)) != 1) {
         return -1;
     }
 
@@ -2327,13 +2327,13 @@ int leb_u64_write_byval(vf_buf *buf, const u64 value)
  * VLU
  */
 
-int vlu_u64_read(vf_buf *buf, u64 *value)
+int mu_vlu_u64_read(mu_buf *buf, u64 *value)
 {
     size_t len;
     int8_t b;
     u64 v = 0;
 
-    if (vf_buf_read_i8(buf, &b) != 1) {
+    if (mu_buf_read_i8(buf, &b) != 1) {
         goto err;
     }
 
@@ -2341,7 +2341,7 @@ int vlu_u64_read(vf_buf *buf, u64 *value)
     if (len > 8) {
         goto err;
     }
-    if (len > 1 && vf_le_ber_integer_u64_read(buf, len - 1, &v) < 0) {
+    if (len > 1 && mu_le_ber_integer_u64_read(buf, len - 1, &v) < 0) {
         goto err;
     }
     v = ((u64)(u8)b >> len) | v << (8 - len);
@@ -2353,14 +2353,14 @@ err:
     return -1;
 }
 
-u64_result vlu_u64_read_byval(vf_buf *buf)
+u64_result mu_vlu_u64_read_byval(mu_buf *buf)
 {
     size_t len;
     int8_t b;
     u64_result r;
     u64 v = 0;
 
-    if (vf_buf_read_i8(buf, &b) != 1) {
+    if (mu_buf_read_i8(buf, &b) != 1) {
         return u64_result { 0, -1 };
     }
 
@@ -2369,7 +2369,7 @@ u64_result vlu_u64_read_byval(vf_buf *buf)
         return u64_result { 0, -1 };
     }
     if (len > 1) {
-        r = vf_le_ber_integer_u64_read_byval(buf, len - 1);
+        r = mu_le_ber_integer_u64_read_byval(buf, len - 1);
         if (r.error < 0) {
             return u64_result { 0, r.error };
         }
@@ -2378,7 +2378,7 @@ u64_result vlu_u64_read_byval(vf_buf *buf)
     return u64_result { ((u64)(u8)b >> len) | v << (8 - len), 0 };
 }
 
-int vlu_u64_write(vf_buf *buf, const u64 *value)
+int mu_vlu_u64_write(mu_buf *buf, const u64 *value)
 {
     size_t len;
     const u64 x = *value;
@@ -2391,14 +2391,14 @@ int vlu_u64_write(vf_buf *buf, const u64 *value)
     len = (x == 0) ? 1 : 8 - ((clz(x) - 1) / 7) + 1;
     v = (x << len) | ((1ull << (len-1))-1);
 
-    if (vf_le_ber_integer_u64_write(buf, len, &v) < 0) {
+    if (mu_le_ber_integer_u64_write(buf, len, &v) < 0) {
         return -1;
     }
 
     return 0;
 }
 
-int vlu_u64_write_byval(vf_buf *buf, const u64 value)
+int mu_vlu_u64_write_byval(mu_buf *buf, const u64 value)
 {
     size_t len;
     const u64 x = value;
@@ -2411,7 +2411,7 @@ int vlu_u64_write_byval(vf_buf *buf, const u64 value)
     len = (x == 0) ? 1 : 8 - ((clz(x) - 1) / 7) + 1;
     v = (x << len) | ((1ull << (len-1))-1);
 
-    if (vf_le_ber_integer_u64_write_byval(buf, len, v) < 0) {
+    if (mu_le_ber_integer_u64_write_byval(buf, len, v) < 0) {
         return -1;
     }
 

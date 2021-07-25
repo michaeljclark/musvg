@@ -408,7 +408,7 @@ struct musvg_brush
 
 // SVG IO
 
-typedef struct vf_buf musvg_buf;
+typedef struct mu_buf mu_buf;
 
 musvg_parser* musvg_parser_create();
 void musvg_parser_destroy(musvg_parser* p);
@@ -416,11 +416,11 @@ void musvg_parser_stats(musvg_parser* p);
 
 musvg_small musvg_parse_format(const char *format);
 
-int musvg_emit_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf);
+int musvg_emit_buffer(musvg_parser* p, musvg_format_t format, mu_buf *buf);
 int musvg_emit_file(musvg_parser* p, musvg_format_t format, const char *filename);
 int musvg_emit_fd(musvg_parser* p, musvg_format_t format, int fd);
 
-int musvg_parse_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf);
+int musvg_parse_buffer(musvg_parser* p, musvg_format_t format, mu_buf *buf);
 int musvg_parse_file(musvg_parser* p, musvg_format_t format, const char *filename);
 int musvg_parse_fd(musvg_parser* p, musvg_format_t format, int fd);
 

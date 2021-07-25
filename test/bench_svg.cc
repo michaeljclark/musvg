@@ -7,7 +7,7 @@
 #include <chrono>
 
 #include "musvg.h"
-#include "vf128.h"
+#include "mubuf.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -51,11 +51,11 @@ static bench_result bench_parse(llong count, bench_info *info)
 
     auto st = high_resolution_clock::now();
     for (llong i = 0; i < count; i++) {
-        musvg_buf *buf = vf_buf_memory_new(span.data, span.size);
+        mu_buf *buf = mu_buf_memory_new(span.data, span.size);
         musvg_parser *p = musvg_parser_create();
         assert(!musvg_parse_buffer(p, info->format, buf));
         musvg_parser_destroy(p);
-        vf_buf_destroy(buf);
+        mu_buf_destroy(buf);
     }
     auto et = high_resolution_clock::now();
 

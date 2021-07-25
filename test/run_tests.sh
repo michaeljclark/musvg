@@ -1,6 +1,6 @@
 #!/bin/sh
 
-./build/test_vfbuf
+./build/test_mubuf
 
 musvgtool=./build/musvgtool
 in=test/input
