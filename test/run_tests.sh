@@ -8,7 +8,8 @@ out=test/output
 test -d ${out} || mkdir ${out}
 
 for name in tiger path ellipse circle line rect polygon polyline \
-	    gradient-href gradient-linear gradient-radial;
+	    gradient-href gradient-linear gradient-radial \
+      xform-matrix xform-rotate xform-scale xform-translate;
 do
   ${musvgtool} -i xml                    -o text                       \
                -if ${in}/${name}.svg     -of ${out}/${name}.text
