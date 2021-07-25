@@ -42,6 +42,8 @@
     #define M_PI 3.14159265358979323846264338327
 #endif
 
+#define MUSVG_BUFFER_MEMSET 0
+
 // Array buffer
 
 typedef struct array_buffer array_buffer;
@@ -58,7 +60,9 @@ static void array_buffer_init(array_buffer *sb, size_t stride, size_t capacity)
     sb->capacity = capacity;
     sb->count = 0;
     sb->data = (char*)malloc(stride * sb->capacity);
+#if MUSVG_BUFFER_MEMSET
     memset(sb->data, 0, stride * sb->capacity);
+#endif
 }
 
 static void array_buffer_destroy(array_buffer *sb)
@@ -97,7 +101,9 @@ static void array_buffer_resize(array_buffer *sb, size_t stride, size_t count)
     if (sb->count + count > sb->capacity) {
         size_t new_capacity = pow2_ge(sb->count + count);
         sb->data = (char*)realloc(sb->data, stride * new_capacity);
+#if MUSVG_BUFFER_MEMSET
         memset(sb->data + stride * sb->capacity, 0, stride * (new_capacity - sb->capacity));
+#endif
         sb->capacity = new_capacity;
     }
 }
@@ -134,7 +140,9 @@ static void storage_buffer_init(storage_buffer *sb, size_t capacity)
     sb->capacity = capacity;
     sb->offset = 0;
     sb->data = (char*)malloc(sb->capacity);
+#if MUSVG_BUFFER_MEMSET
     memset(sb->data, 0, sb->capacity);
+#endif
 }
 
 static void storage_buffer_destroy(storage_buffer *sb)
@@ -168,7 +176,9 @@ static void storage_buffer_resize(storage_buffer *sb, size_t offset)
     if (offset > sb->capacity) {
         size_t new_size = pow2_ge(offset);
         sb->data = (char*)realloc(sb->data, new_size);
+#if MUSVG_BUFFER_MEMSET
         memset(sb->data + sb->capacity, 0, new_size - sb->capacity);
+#endif
         sb->capacity = new_size;
     }
 }
