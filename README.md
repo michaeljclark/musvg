@@ -96,7 +96,6 @@ strings             1         57         64         57         64
 totals                                           88990     126976
 ```
 
-
 ## topological hashing
 
 once the binary representation is in place, there is a plan to succinctly
@@ -193,6 +192,32 @@ link nodes and ("∅") for the empty set:
 note: topological hashing imposes a dependency-free traversal because a node
 hash cannot be calculated until the sum of its dependent node is known.
 
-## to-be-continued
+## building
 
-...
+### Ninja
+
+The project can be built using the ninja build tool on Windows, Linux
+and macOS, by specifying the `Ninja` generator to cmake:
+
+```
+cmake -G Ninja -B build
+cmake --build build -- --verbose
+```
+
+### Address Sanitizer
+
+building with address sanitizer on Windows, Linux or macOS using Clang or GCC:
+
+```
+cmake -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug -DMUSVG_ENABLE_MSAN=ON
+```
+
+### Memory Sanitizer
+
+building with memory sanitizer on Linux using Clang:
+
+```
+CXX=clang++ CC=clang cmake -B build -G Ninja \
+  -DCMAKE_BUILD_TYPE=Debug -DMUSVG_ENABLE_MSAN=ON
+```

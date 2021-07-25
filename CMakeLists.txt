@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8)
+cmake_minimum_required (VERSION 3.12)
 
 project(musvg)
 
@@ -7,17 +7,43 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+option(MUSVG_ENABLE_ASAN "Enable ASAN" OFF)
+option(MUSVG_ENABLE_MSAN "Enable MSAN" OFF)
+option(MUSVG_ENABLE_UBSAN "Enable UBSAN" OFF)
+
+macro(add_compiler_flag)
+   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARGN}")
+   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARGN}")
+endmacro(add_compiler_flag)
+
+macro(add_linker_flag)
+  set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} ${ARGN}")
+endmacro(add_linker_flag)
+
 include(CheckCXXCompilerFlag)
 
 # We need haswell for TZCNT/LZCNT
 check_cxx_compiler_flag("-march=x86-64-v3" has_march_x86_64_v3 "int main() { return 0; }")
 check_cxx_compiler_flag("-march=haswell" has_march_haswell "int main() { return 0; }")
 if (has_march_x86_64_v3)
-	list(APPEND CMAKE_C_FLAGS -march=x86-64-v3)
-	list(APPEND CMAKE_CXX_FLAGS -march=x86-64-v3)
+	add_compiler_flag(-march=x86-64-v3)
 elseif (has_march_haswell)
-	list(APPEND CMAKE_C_FLAGS -march=haswell)
-	list(APPEND CMAKE_CXX_FLAGS -march=haswell)
+	add_compiler_flag(-march=haswell)
+endif()
+
+if (MUSVG_ENABLE_ASAN)
+  add_compiler_flag(-fsanitize=address)
+  add_linker_flag(-fsanitize=address)
+endif()
+
+if(MUSVG_ENABLE_MSAN)
+  add_compiler_flag(-fsanitize=memory)
+  add_linker_flag(-fsanitize=memory)
+endif()
+
+if(MUSVG_ENABLE_UBSAN)
+  add_compiler_flag(-fsanitize=undefined)
+  add_linker_flag(-fsanitize=undefined)
 endif()
 
 include(CheckLibraryExists)
