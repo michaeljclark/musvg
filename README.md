@@ -23,6 +23,33 @@ for other formats such as [IconVG](https://github.com/google/iconvg/).
 presently there is only a parser split out from nanosvg with the addition
 of a graph representation that preserves the structure of the SVG document.
 
+## binary encoding example
+
+succinct coding of SVG circle takes 21 bytes instead of 41 bytes as XML.
+if we were able to encode the radius in a parent element then it would take 15 bytes.
+if there were a polygon like primitive with point data with or without radius
+it would take only 8 or 12 bytes.
+
+```
+<circle cx="105" cy="105" r="54.726524"/>
+```
+
+- (1 byte) circle-element-symbol
+  - (1 byte) cx-length-attribute-symbol
+  - (5 bytes) length encoding
+    - (4 bytes) ieee-754 float
+    - (1 byte)  length-unit-user
+  - (1 byte) cy-length-attribute-symbol
+  - (5 bytes) length encoding
+    - (4 bytes) ieee-754 float
+    - (1 byte)  length-unit-user
+  - (1 byte) r-length-attribute-symbol
+  - (5 bytes) length encoding
+    - (4 bytes) ieee-754 float
+    - (1 byte)  length-unit-user
+  - (1 byte) end-attribute-list-symbol
+- (1 byte) close-element-symbol
+
 ## musvgtool
 
 musvgtool is a utility that converts between SVG XML and SVG Binary.
