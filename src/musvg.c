@@ -2680,8 +2680,9 @@ int musvg_parse_svg_xml(musvg_parser* p, musvg_buf *buf)
     /* copy the source buffer due to xml parse modifying the
      * buffer to allow in-place zero-termination of attributes.
      * also make it look like we read from the source buffer. */
-    musvg_buf *tmp = vf_buf_new(buf->write_marker);
+    musvg_buf *tmp = vf_buf_new(buf->write_marker + 1);
     vf_buf_write_bytes(tmp, buf->data, buf->write_marker);
+    tmp->data[buf->write_marker] = '\0';
     int ret = musvg_parse_xml(tmp->data, musvg_start_element,
                               musvg_end_element, musvg_content, p);
     buf->read_marker = buf->write_marker;
