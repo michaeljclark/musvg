@@ -586,6 +586,13 @@ static const musvg_typeinfo_attr musvg_type_info_attr[] =
     [musvg_attr_xlink_href]                = { musvg_type_id },
 };
 
+musvg_small musvg_parse_linecap(const char* str);
+musvg_small musvg_parse_linejoin(const char* str);
+musvg_small musvg_parse_fillrule(const char* str);
+musvg_small musvg_parse_display(const char* str);
+musvg_small musvg_parse_spread_method(const char* str);
+musvg_small musvg_parse_gradient_units(const char* str);
+
 static const musvg_typeinfo_enum musvg_type_info_enum[] =
 {
     [musvg_attr_stroke_linejoin]    = { musvg_linejoin_names,        musvg_linejoin_limit,        musvg_parse_linejoin },
@@ -1211,6 +1218,8 @@ static int musvg_is_length(const char* s)
     // must have at least one digit, or start by a dot
     return (musvg_isdigit(*s) || *s == '.');
 }
+
+musvg_small musvg_parse_units(const char* units);
 
 static musvg_length musvg_parse_length(const char* str)
 {

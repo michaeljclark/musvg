@@ -406,17 +406,6 @@ struct musvg_brush
     uint stop_offset, stop_count;
 };
 
-// SVG enum parsing
-
-musvg_small musvg_parse_format(const char *format);
-musvg_small musvg_parse_units(const char* units);
-musvg_small musvg_parse_linecap(const char* str);
-musvg_small musvg_parse_linejoin(const char* str);
-musvg_small musvg_parse_fillrule(const char* str);
-musvg_small musvg_parse_display(const char* str);
-musvg_small musvg_parse_spread_method(const char* str);
-musvg_small musvg_parse_gradient_units(const char* str);
-
 // SVG IO
 
 typedef struct vf_buf musvg_buf;
@@ -424,6 +413,8 @@ typedef struct vf_buf musvg_buf;
 musvg_parser* musvg_parser_create();
 void musvg_parser_destroy(musvg_parser* p);
 void musvg_parser_stats(musvg_parser* p);
+
+musvg_small musvg_parse_format(const char *format);
 
 int musvg_emit_buffer(musvg_parser* p, musvg_format_t format, musvg_buf *buf);
 int musvg_emit_file(musvg_parser* p, musvg_format_t format, const char *filename);
