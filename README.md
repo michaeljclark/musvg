@@ -204,6 +204,13 @@ cmake -G Ninja -B build
 cmake --build build -- --verbose
 ```
 
+choose specifically a Clang Release build with debug symbols enabled:
+
+```
+CXX=clang++ CC=clang cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake --build build -- --verbose
+```
+
 ### Address Sanitizer
 
 building with address sanitizer on Windows, Linux or macOS using Clang or GCC:
