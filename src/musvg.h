@@ -69,7 +69,6 @@ typedef struct musvg_path_d musvg_path_d;
 typedef struct musvg_transform musvg_transform;
 typedef struct musvg_dasharray musvg_dasharray;
 typedef struct musvg_path_op musvg_path_op;
-typedef struct musvg_typeinfo_attr musvg_typeinfo_attr;
 typedef struct musvg_typeinfo_enum musvg_typeinfo_enum;
 typedef struct musvg_gradient_stop musvg_gradient_stop;
 typedef struct musvg_linear_gradient musvg_linear_gradient;
@@ -77,6 +76,7 @@ typedef struct musvg_radial_gradient musvg_radial_gradient;
 typedef struct musvg_brush musvg_brush;
 typedef struct musvg_named_color musvg_named_color;
 typedef struct musvg_parser musvg_parser;
+typedef struct musvg_node musvg_node;
 
 // SVG enums
 
@@ -370,11 +370,6 @@ enum musvg_type_t
     musvg_type_points,
 };
 
-struct musvg_typeinfo_attr
-{
-    musvg_type_t type;
-};
-
 typedef musvg_small (*parse_enum_fn)(const char* units);
 
 struct musvg_typeinfo_enum
@@ -425,8 +420,16 @@ int musvg_parse_buffer(musvg_parser* p, musvg_format_t format, mu_buf *buf);
 int musvg_parse_file(musvg_parser* p, musvg_format_t format, const char *filename);
 int musvg_parse_fd(musvg_parser* p, musvg_format_t format, int fd);
 
+typedef void (*musvg_node_visit_fn)(musvg_parser *, void *, musvg_node *, uint depth, uint close);
+void musvg_visit(musvg_parser* p, void *userdata, musvg_node_visit_fn begin_fn, musvg_node_visit_fn end_fn);
+
 musvg_span musvg_read_file(const char* filename);
 musvg_span musvg_read_fd(int fd);
+
+/* delta api */
+
+int musvg_attr_set_value(musvg_parser *p, musvg_node *node, musvg_attr_t attr, const char *value, size_t len);
+int musvg_attr_get_value(musvg_parser *p, musvg_node *node, musvg_attr_t attr, char *value, size_t *len);
 
 #ifdef __cplusplus
 }
