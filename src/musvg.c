@@ -334,66 +334,66 @@ static int musvg_isdigit(char c)
 #define array_size(arr) ((sizeof(arr)/sizeof(arr[0])))
 
 static const char * musvg_element_names[] = {
-    [musvg_element_svg]                    = "svg",
-    [musvg_element_g]                      = "g",
-    [musvg_element_defs]                   = "defs",
-    [musvg_element_path]                   = "path",
-    [musvg_element_rect]                   = "rect",
-    [musvg_element_circle]                 = "circle",
-    [musvg_element_ellipse]                = "ellipse",
-    [musvg_element_line]                   = "line",
-    [musvg_element_polyline]               = "polyline",
-    [musvg_element_polygon]                = "polygon",
-    [musvg_element_linear_gradient]        = "linearGradient",
-    [musvg_element_radial_gradient]        = "radialGradient",
-    [musvg_element_stop]                   = "stop",
+    [musvg_element_svg]                       = "svg",
+    [musvg_element_g]                         = "g",
+    [musvg_element_defs]                      = "defs",
+    [musvg_element_path]                      = "path",
+    [musvg_element_rect]                      = "rect",
+    [musvg_element_circle]                    = "circle",
+    [musvg_element_ellipse]                   = "ellipse",
+    [musvg_element_line]                      = "line",
+    [musvg_element_polyline]                  = "polyline",
+    [musvg_element_polygon]                   = "polygon",
+    [musvg_element_linear_gradient]           = "linearGradient",
+    [musvg_element_radial_gradient]           = "radialGradient",
+    [musvg_element_stop]                      = "stop",
 };
 
 static const char * musvg_attribute_names[] = {
-    [musvg_attr_display]                   = "display",
-    [musvg_attr_fill]                      = "fill",
-    [musvg_attr_fill_opacity]              = "fill-opacity",
-    [musvg_attr_fill_rule]                 = "fill-rule",
-    [musvg_attr_font_size]                 = "font-size",
-    [musvg_attr_id]                        = "id",
-    [musvg_attr_stroke]                    = "stroke",
-    [musvg_attr_stroke_width]              = "stroke-width",
-    [musvg_attr_stroke_dasharray]          = "stroke-dasharray",
-    [musvg_attr_stroke_dashoffset]         = "stroke-dashoffset",
-    [musvg_attr_stroke_opacity]            = "stroke-opacity",
-    [musvg_attr_stroke_linecap]            = "stroke-linecap",
-    [musvg_attr_stroke_linejoin]           = "stroke-linejoin",
-    [musvg_attr_stroke_miterlimit]         = "stroke-miterlimit",
-    [musvg_attr_style]                     = "style",
-    [musvg_attr_transform]                 = "transform",
-    [musvg_attr_d]                         = "d",
-    [musvg_attr_points]                    = "points",
-    [musvg_attr_width]                     = "width",
-    [musvg_attr_height]                    = "height",
-    [musvg_attr_x]                         = "x",
-    [musvg_attr_y]                         = "y",
-    [musvg_attr_r]                         = "r",
-    [musvg_attr_rx]                        = "rx",
-    [musvg_attr_ry]                        = "ry",
-    [musvg_attr_cx]                        = "cx",
-    [musvg_attr_cy]                        = "cy",
-    [musvg_attr_x1]                        = "x1",
-    [musvg_attr_y1]                        = "y1",
-    [musvg_attr_x2]                        = "x2",
-    [musvg_attr_y2]                        = "y2",
-    [musvg_attr_fx]                        = "fx",
-    [musvg_attr_fy]                        = "fy",
-    [musvg_attr_offset]                    = "offset",
-    [musvg_attr_stop_color]                = "stop-color",
-    [musvg_attr_stop_opacity]              = "stop-opacity",
-    [musvg_attr_gradient_units]            = "gradientUnits",
-    [musvg_attr_gradient_transform]        = "gradientTransform",
-    [musvg_attr_spread_method]             = "spreadMethod",
-    [musvg_attr_view_box]                  = "viewBox",
-    [musvg_attr_preserve_aspect_ratio]     = "preserveAspectRatio",
-    [musvg_attr_xmlns]                     = "xmlns",
-    [musvg_attr_xmlns_xlink]               = "xmlns:xlink",
-    [musvg_attr_xlink_href]                = "xlink:href",
+    [musvg_attr_display]                      = "display",
+    [musvg_attr_fill]                         = "fill",
+    [musvg_attr_fill_opacity]                 = "fill-opacity",
+    [musvg_attr_fill_rule]                    = "fill-rule",
+    [musvg_attr_font_size]                    = "font-size",
+    [musvg_attr_id]                           = "id",
+    [musvg_attr_stroke]                       = "stroke",
+    [musvg_attr_stroke_width]                 = "stroke-width",
+    [musvg_attr_stroke_dasharray]             = "stroke-dasharray",
+    [musvg_attr_stroke_dashoffset]            = "stroke-dashoffset",
+    [musvg_attr_stroke_opacity]               = "stroke-opacity",
+    [musvg_attr_stroke_linecap]               = "stroke-linecap",
+    [musvg_attr_stroke_linejoin]              = "stroke-linejoin",
+    [musvg_attr_stroke_miterlimit]            = "stroke-miterlimit",
+    [musvg_attr_style]                        = "style",
+    [musvg_attr_transform]                    = "transform",
+    [musvg_attr_d]                            = "d",
+    [musvg_attr_points]                       = "points",
+    [musvg_attr_width]                        = "width",
+    [musvg_attr_height]                       = "height",
+    [musvg_attr_x]                            = "x",
+    [musvg_attr_y]                            = "y",
+    [musvg_attr_r]                            = "r",
+    [musvg_attr_rx]                           = "rx",
+    [musvg_attr_ry]                           = "ry",
+    [musvg_attr_cx]                           = "cx",
+    [musvg_attr_cy]                           = "cy",
+    [musvg_attr_x1]                           = "x1",
+    [musvg_attr_y1]                           = "y1",
+    [musvg_attr_x2]                           = "x2",
+    [musvg_attr_y2]                           = "y2",
+    [musvg_attr_fx]                           = "fx",
+    [musvg_attr_fy]                           = "fy",
+    [musvg_attr_offset]                       = "offset",
+    [musvg_attr_stop_color]                   = "stop-color",
+    [musvg_attr_stop_opacity]                 = "stop-opacity",
+    [musvg_attr_gradient_units]               = "gradientUnits",
+    [musvg_attr_gradient_transform]           = "gradientTransform",
+    [musvg_attr_spread_method]                = "spreadMethod",
+    [musvg_attr_view_box]                     = "viewBox",
+    [musvg_attr_preserve_aspect_ratio]        = "preserveAspectRatio",
+    [musvg_attr_xmlns]                        = "xmlns",
+    [musvg_attr_xmlns_xlink]                  = "xmlns:xlink",
+    [musvg_attr_xlink_href]                   = "xlink:href",
 };
 
 static const char * musvg_path_op_names[] = {
@@ -417,6 +417,177 @@ static const char * musvg_path_op_names[] = {
     [musvg_path_curveto_cubic_smooth_rel]     = "curveto_cubic_smooth_rel",
     [musvg_path_curveto_quadratic_smooth_abs] = "curveto_quadratic_smooth_abs",
     [musvg_path_curveto_quadratic_smooth_rel] = "curveto_quadratic_smooth_rel",
+};
+
+static const char * musvg_brush_names[] = {
+    [musvg_brush_color]                       = "color",
+    [musvg_brush_linear_gradient]             = "linearGradient",
+    [musvg_brush_radial_gradient]             = "radialGradient",
+};
+
+static const char * musvg_align_names[] = {
+    [musvg_align_min]                         = "Min",
+    [musvg_align_mid]                         = "Mid",
+    [musvg_align_max]                         = "Max",
+    [musvg_align_none]                        = "none",
+};
+
+static const char * musvg_crop_names[] = {
+    [musvg_crop_meet]                         = "meet",
+    [musvg_crop_slice]                        = "slice",
+    [musvg_crop_none]                         = "none",
+};
+
+static const char * musvg_spread_method_names[] = {
+    [musvg_spread_method_pad]                 = "pad",
+    [musvg_spread_method_reflect]             = "reflect",
+    [musvg_spread_method_repeat]              = "repeat",
+};
+
+static const char * musvg_gradient_unit_names[] = {
+    [musvg_gradient_unit_user]                = "userSpaceOnUse",
+    [musvg_gradient_unit_obb]                 = "objectBoundingBox",
+};
+
+static const char * musvg_linecap_names[] = {
+    [musvg_linecap_butt]                      = "butt",
+    [musvg_linecap_round]                     = "round",
+    [musvg_linecap_square]                    = "square",
+};
+
+static const char * musvg_linejoin_names[] = {
+    [musvg_linejoin_miter]                    = "miter",
+    [musvg_linejoin_round]                    = "round",
+    [musvg_linejoin_bevel]                    = "bevel",
+};
+
+static const char * musvg_fillrule_names[] = {
+    [musvg_fillrule_nonzero]                  = "nonzero",
+    [musvg_fillrule_evenodd]                  = "evenodd",
+};
+
+static const char * musvg_display_names[] = {
+    [musvg_display_none]                      = "none",
+    [musvg_display_inline]                    = "inline",
+};
+
+static const char * musvg_unit_names[] = {
+    [musvg_unit_user]                         = "user",
+    [musvg_unit_px]                           = "px",
+    [musvg_unit_pt]                           = "pt",
+    [musvg_unit_pc]                           = "pc",
+    [musvg_unit_mm]                           = "mm",
+    [musvg_unit_cm]                           = "cm",
+    [musvg_unit_in]                           = "in",
+    [musvg_unit_percent]                      = "%",
+    [musvg_unit_em]                           = "em",
+    [musvg_unit_ex]                           = "ex",
+};
+
+static const char * musvg_transform_names[] = {
+    [musvg_transform_matrix]                  = "matrix",
+    [musvg_transform_translate]               = "translate",
+    [musvg_transform_scale]                   = "scale",
+    [musvg_transform_rotate]                  = "rotate",
+    [musvg_transform_skew_x]                  = "skewX",
+    [musvg_transform_skew_y]                  = "skewY",
+};
+
+static const char* musvg_type_names[] = {
+    [musvg_type_enum]                         = "enum",
+    [musvg_type_id]                           = "id",
+    [musvg_type_length]                       = "length",
+    [musvg_type_color]                        = "color",
+    [musvg_type_transform]                    = "transform",
+    [musvg_type_dasharray]                    = "dasharray",
+    [musvg_type_float]                        = "float",
+    [musvg_type_viewbox]                      = "viewbox",
+    [musvg_type_aspectratio]                  = "aspectratio",
+    [musvg_type_path]                         = "path",
+    [musvg_type_points]                       = "points",
+};
+
+static const musvg_type_t musvg_attr_type[] =
+{
+    /* common attributes */
+    [musvg_attr_display]                      = musvg_type_enum,
+    [musvg_attr_fill]                         = musvg_type_color,
+    [musvg_attr_fill_opacity]                 = musvg_type_float,
+    [musvg_attr_fill_rule]                    = musvg_type_enum,
+    [musvg_attr_font_size]                    = musvg_type_length,
+    [musvg_attr_id]                           = musvg_type_id,
+    [musvg_attr_stroke]                       = musvg_type_color,
+    [musvg_attr_stroke_width]                 = musvg_type_length,
+    [musvg_attr_stroke_dashoffset]            = musvg_type_length,
+    [musvg_attr_stroke_dasharray]             = musvg_type_dasharray,
+    [musvg_attr_stroke_opacity]               = musvg_type_float,
+    [musvg_attr_stroke_linecap]               = musvg_type_enum,
+    [musvg_attr_stroke_linejoin]              = musvg_type_enum,
+    [musvg_attr_stroke_miterlimit]            = musvg_type_float,
+    [musvg_attr_style]                        = 0,
+    [musvg_attr_transform]                    = musvg_type_transform,
+    /* element specific attributes */
+    [musvg_attr_d]                            = musvg_type_path,
+    [musvg_attr_points]                       = musvg_type_points,
+    [musvg_attr_width]                        = musvg_type_length,
+    [musvg_attr_height]                       = musvg_type_length,
+    [musvg_attr_x]                            = musvg_type_length,
+    [musvg_attr_y]                            = musvg_type_length,
+    [musvg_attr_r]                            = musvg_type_length,
+    [musvg_attr_rx]                           = musvg_type_length,
+    [musvg_attr_ry]                           = musvg_type_length,
+    [musvg_attr_cx]                           = musvg_type_length,
+    [musvg_attr_cy]                           = musvg_type_length,
+    [musvg_attr_x1]                           = musvg_type_length,
+    [musvg_attr_y1]                           = musvg_type_length,
+    [musvg_attr_x2]                           = musvg_type_length,
+    [musvg_attr_y2]                           = musvg_type_length,
+    [musvg_attr_fx]                           = musvg_type_length,
+    [musvg_attr_fy]                           = musvg_type_length,
+    [musvg_attr_offset]                       = musvg_type_length,
+    [musvg_attr_stop_color]                   = musvg_type_color,
+    [musvg_attr_stop_opacity]                 = musvg_type_float,
+    [musvg_attr_gradient_units]               = musvg_type_enum,
+    [musvg_attr_gradient_transform]           = musvg_type_transform,
+    [musvg_attr_spread_method]                = musvg_type_enum,
+    [musvg_attr_view_box]                     = musvg_type_viewbox,
+    [musvg_attr_preserve_aspect_ratio]        = musvg_type_aspectratio,
+    [musvg_attr_xmlns]                        = musvg_type_id,
+    [musvg_attr_xmlns_xlink]                  = musvg_type_id,
+    [musvg_attr_xlink_href]                   = musvg_type_id,
+};
+
+musvg_small musvg_parse_linecap(const char* str);
+musvg_small musvg_parse_linejoin(const char* str);
+musvg_small musvg_parse_fillrule(const char* str);
+musvg_small musvg_parse_display(const char* str);
+musvg_small musvg_parse_spread_method(const char* str);
+musvg_small musvg_parse_gradient_units(const char* str);
+
+static const musvg_typeinfo_enum musvg_type_info_enum[] =
+{
+    [musvg_attr_stroke_linejoin]    = { musvg_linejoin_names,        musvg_linejoin_limit,        musvg_parse_linejoin },
+    [musvg_attr_stroke_linecap]     = { musvg_linecap_names,         musvg_linecap_limit,         musvg_parse_linecap  },
+    [musvg_attr_fill_rule]          = { musvg_fillrule_names,        musvg_fillrule_limit,        musvg_parse_fillrule },
+    [musvg_attr_display]            = { musvg_display_names,         musvg_display_limit,         musvg_parse_display  },
+    [musvg_attr_spread_method]      = { musvg_spread_method_names,   musvg_spread_method_limit,   musvg_parse_spread_method },
+    [musvg_attr_gradient_units]     = { musvg_gradient_unit_names,   musvg_gradient_unit_limit,   musvg_parse_gradient_units  },
+};
+
+typedef struct { size_t size, align; } musvg_type_meta;
+
+static const musvg_type_meta musvg_type_storage[] = {
+    [musvg_type_enum]        = { sizeof(char),              alignof(char)              },
+    [musvg_type_id]          = { sizeof(musvg_id),          alignof(musvg_id)          },
+    [musvg_type_length]      = { sizeof(musvg_length),      alignof(musvg_length)      },
+    [musvg_type_color]       = { sizeof(musvg_color),       alignof(musvg_color)       },
+    [musvg_type_transform]   = { sizeof(musvg_transform),   alignof(musvg_transform)   },
+    [musvg_type_dasharray]   = { sizeof(musvg_dasharray),   alignof(musvg_dasharray)   },
+    [musvg_type_float]       = { sizeof(float),             alignof(float)             },
+    [musvg_type_viewbox]     = { sizeof(musvg_viewbox),     alignof(musvg_viewbox)     },
+    [musvg_type_aspectratio] = { sizeof(musvg_aspectratio), alignof(musvg_aspectratio) },
+    [musvg_type_path]        = { sizeof(musvg_path_d),      alignof(musvg_path_d)      },
+    [musvg_type_points]      = { sizeof(musvg_points),      alignof(musvg_points)      },
 };
 
 static inline uint musvg_path_opcode_t_arg_count(uint opcode)
@@ -462,176 +633,6 @@ static inline uint musvg_parse_opcode(char c)
     }
     return musvg_path_none;
 }
-
-static const char * musvg_brush_names[] = {
-    [musvg_brush_color]           = "color",
-    [musvg_brush_linear_gradient] = "linearGradient",
-    [musvg_brush_radial_gradient] = "radialGradient",
-};
-
-static const char * musvg_align_names[] = {
-    [musvg_align_min] = "Min",
-    [musvg_align_mid] = "Mid",
-    [musvg_align_max] = "Max",
-    [musvg_align_none] = "none",
-};
-
-static const char * musvg_crop_names[] = {
-    [musvg_crop_meet] = "meet",
-    [musvg_crop_slice] = "slice",
-    [musvg_crop_none] = "none",
-};
-
-static const char * musvg_spread_method_names[] = {
-    [musvg_spread_method_pad]     = "pad",
-    [musvg_spread_method_reflect] = "reflect",
-    [musvg_spread_method_repeat]  = "repeat",
-};
-
-static const char * musvg_gradient_unit_names[] = {
-    [musvg_gradient_unit_user]    = "userSpaceOnUse",
-    [musvg_gradient_unit_obb]     = "objectBoundingBox",
-};
-
-static const char * musvg_linecap_names[] = {
-    [musvg_linecap_butt]    = "butt",
-    [musvg_linecap_round]   = "round",
-    [musvg_linecap_square]  = "square",
-};
-
-static const char * musvg_linejoin_names[] = {
-    [musvg_linejoin_miter]   = "miter",
-    [musvg_linejoin_round]   = "round",
-    [musvg_linejoin_bevel]   = "bevel",
-};
-
-static const char * musvg_fillrule_names[] = {
-    [musvg_fillrule_nonzero] = "nonzero",
-    [musvg_fillrule_evenodd] = "evenodd",
-};
-
-static const char * musvg_display_names[] = {
-    [musvg_display_none]    = "none",
-    [musvg_display_inline]  = "inline",
-};
-
-static const char * musvg_unit_names[] = {
-    [musvg_unit_user]    = "user",
-    [musvg_unit_px]      = "px",
-    [musvg_unit_pt]      = "pt",
-    [musvg_unit_pc]      = "pc",
-    [musvg_unit_mm]      = "mm",
-    [musvg_unit_cm]      = "cm",
-    [musvg_unit_in]      = "in",
-    [musvg_unit_percent] = "%",
-    [musvg_unit_em]      = "em",
-    [musvg_unit_ex]      = "ex",
-};
-
-static const char * musvg_transform_names[] = {
-    [musvg_transform_matrix]    = "matrix",
-    [musvg_transform_translate] = "translate",
-    [musvg_transform_scale]     = "scale",
-    [musvg_transform_rotate]    = "rotate",
-    [musvg_transform_skew_x]    = "skewX",
-    [musvg_transform_skew_y]    = "skewY",
-};
-
-static const musvg_type_t musvg_attr_type[] =
-{
-    /* common attributes */
-    [musvg_attr_id]                        = musvg_type_id,
-    [musvg_attr_transform]                 = musvg_type_transform,
-    [musvg_attr_fill]                      = musvg_type_color,
-    [musvg_attr_stroke]                    = musvg_type_color,
-    [musvg_attr_fill_opacity]              = musvg_type_float,
-    [musvg_attr_stroke_opacity]            = musvg_type_float,
-    [musvg_attr_stroke_miterlimit]         = musvg_type_float,
-    [musvg_attr_stroke_width]              = musvg_type_length,
-    [musvg_attr_stroke_dashoffset]         = musvg_type_length,
-    [musvg_attr_stroke_dasharray]          = musvg_type_dasharray,
-    [musvg_attr_stroke_linejoin]           = musvg_type_enum,
-    [musvg_attr_stroke_linecap]            = musvg_type_enum,
-    [musvg_attr_fill_rule]                 = musvg_type_enum,
-    [musvg_attr_display]                   = musvg_type_enum,
-    [musvg_attr_font_size]                 = musvg_type_length,
-    /* element specific attributes */
-    [musvg_attr_d]                         = musvg_type_path,
-    [musvg_attr_points]                    = musvg_type_points,
-    [musvg_attr_width]                     = musvg_type_length,
-    [musvg_attr_height]                    = musvg_type_length,
-    [musvg_attr_x]                         = musvg_type_length,
-    [musvg_attr_y]                         = musvg_type_length,
-    [musvg_attr_r]                         = musvg_type_length,
-    [musvg_attr_rx]                        = musvg_type_length,
-    [musvg_attr_ry]                        = musvg_type_length,
-    [musvg_attr_cx]                        = musvg_type_length,
-    [musvg_attr_cy]                        = musvg_type_length,
-    [musvg_attr_x1]                        = musvg_type_length,
-    [musvg_attr_y1]                        = musvg_type_length,
-    [musvg_attr_x2]                        = musvg_type_length,
-    [musvg_attr_y2]                        = musvg_type_length,
-    [musvg_attr_fx]                        = musvg_type_length,
-    [musvg_attr_fy]                        = musvg_type_length,
-    [musvg_attr_offset]                    = musvg_type_length,
-    [musvg_attr_stop_color]                = musvg_type_color,
-    [musvg_attr_stop_opacity]              = musvg_type_float,
-    [musvg_attr_gradient_units]            = musvg_type_enum,
-    [musvg_attr_gradient_transform]        = musvg_type_transform,
-    [musvg_attr_spread_method]             = musvg_type_enum,
-    [musvg_attr_view_box]                  = musvg_type_viewbox,
-    [musvg_attr_preserve_aspect_ratio]     = musvg_type_aspectratio,
-    [musvg_attr_xmlns]                     = musvg_type_id,
-    [musvg_attr_xmlns_xlink]               = musvg_type_id,
-    [musvg_attr_xlink_href]                = musvg_type_id,
-};
-
-musvg_small musvg_parse_linecap(const char* str);
-musvg_small musvg_parse_linejoin(const char* str);
-musvg_small musvg_parse_fillrule(const char* str);
-musvg_small musvg_parse_display(const char* str);
-musvg_small musvg_parse_spread_method(const char* str);
-musvg_small musvg_parse_gradient_units(const char* str);
-
-static const musvg_typeinfo_enum musvg_type_info_enum[] =
-{
-    [musvg_attr_stroke_linejoin]    = { musvg_linejoin_names,        musvg_linejoin_limit,        musvg_parse_linejoin },
-    [musvg_attr_stroke_linecap]     = { musvg_linecap_names,         musvg_linecap_limit,         musvg_parse_linecap  },
-    [musvg_attr_fill_rule]          = { musvg_fillrule_names,        musvg_fillrule_limit,        musvg_parse_fillrule },
-    [musvg_attr_display]            = { musvg_display_names,         musvg_display_limit,         musvg_parse_display  },
-    [musvg_attr_spread_method]      = { musvg_spread_method_names,   musvg_spread_method_limit,   musvg_parse_spread_method },
-    [musvg_attr_gradient_units]     = { musvg_gradient_unit_names,   musvg_gradient_unit_limit,   musvg_parse_gradient_units  },
-};
-
-typedef struct { size_t size, align; } musvg_type_meta;
-
-static const musvg_type_meta musvg_type_storage[] = {
-    [musvg_type_enum]        = { sizeof(char),              alignof(char)              },
-    [musvg_type_id]          = { sizeof(musvg_id),          alignof(musvg_id)          },
-    [musvg_type_length]      = { sizeof(musvg_length),      alignof(musvg_length)      },
-    [musvg_type_color]       = { sizeof(musvg_color),       alignof(musvg_color)       },
-    [musvg_type_transform]   = { sizeof(musvg_transform),   alignof(musvg_transform)   },
-    [musvg_type_dasharray]   = { sizeof(musvg_dasharray),   alignof(musvg_dasharray)   },
-    [musvg_type_float]       = { sizeof(float),             alignof(float)             },
-    [musvg_type_viewbox]     = { sizeof(musvg_viewbox),     alignof(musvg_viewbox)     },
-    [musvg_type_aspectratio] = { sizeof(musvg_aspectratio), alignof(musvg_aspectratio) },
-    [musvg_type_path]        = { sizeof(musvg_path_d),      alignof(musvg_path_d)      },
-    [musvg_type_points]      = { sizeof(musvg_points),      alignof(musvg_points)      },
-};
-
-static const char* musvg_type_names[] = {
-    [musvg_type_enum]        = "enum",
-    [musvg_type_id]          = "id",
-    [musvg_type_length]      = "length",
-    [musvg_type_color]       = "color",
-    [musvg_type_transform]   = "transform",
-    [musvg_type_dasharray]   = "dasharray",
-    [musvg_type_float]       = "float",
-    [musvg_type_viewbox]     = "viewbox",
-    [musvg_type_aspectratio] = "aspectratio",
-    [musvg_type_path]        = "path",
-    [musvg_type_points]      = "points",
-};
 
 // XML parser
 
