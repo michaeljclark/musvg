@@ -534,7 +534,7 @@ static const char * musvg_transform_names[] = {
     [musvg_transform_scale]     = "scale",
     [musvg_transform_rotate]    = "rotate",
     [musvg_transform_skew_x]    = "skewX",
-    [musvg_transform_skew_y]    = "skeyY",
+    [musvg_transform_skew_y]    = "skewY",
 };
 
 static const musvg_typeinfo_attr musvg_type_info_attr[] =
