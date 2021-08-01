@@ -2945,6 +2945,15 @@ void musvg_parser_dump(musvg_parser* p)
     }
 }
 
+void musvg_parser_types()
+{
+    printf("%-14s %5s\n", "type", "size");
+    printf("%-14s %5s\n", "--------------", "-----");
+    for (size_t i = 0; i < array_size(musvg_type_names); i++) {
+        printf("%-14s %5zu\n", musvg_type_names[i], musvg_type_storage[i].size * 8);
+    }
+}
+
 // file io helper functions
 
 musvg_span musvg_read_file(const char* filename)

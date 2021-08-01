@@ -409,6 +409,7 @@ musvg_parser* musvg_parser_create();
 void musvg_parser_destroy(musvg_parser* p);
 void musvg_parser_stats(musvg_parser* p);
 void musvg_parser_dump(musvg_parser* p);
+void musvg_parser_types();
 
 musvg_small musvg_parse_format(const char *format);
 
