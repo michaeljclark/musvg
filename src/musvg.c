@@ -1650,8 +1650,12 @@ static musvg_dasharray musvg_parse_stroke_dasharray(const char* str)
 static int musvg_dasharray_string(char *buf, size_t buflen, const musvg_dasharray *da)
 {
     int len = 0;
-    for (size_t i = 0; i < da->count; i++) {
-        len += snprintf(buf+len, buflen-len, "%s%.8g", i > 0 ? "," : "", da->dashes[i]);
+    if (!da->count) {
+        len += snprintf(buf+len, buflen-len, "none");
+    } else {
+        for (size_t i = 0; i < da->count; i++) {
+            len += snprintf(buf+len, buflen-len, "%s%.8g", i > 0 ? "," : "", da->dashes[i]);
+        }
     }
     return len;
 }
