@@ -37,6 +37,7 @@ typedef unsigned uint;
 typedef long long llong;
 typedef unsigned long long ullong;
 typedef signed char musvg_small;
+typedef int musvg_index;
 
 #ifndef __cplusplus
 typedef enum musvg_path_opcode_t musvg_path_opcode_t;
@@ -53,8 +54,8 @@ typedef enum musvg_crop_t musvg_crop_t;
 typedef enum musvg_color_type_t musvg_color_type_t;
 typedef enum musvg_gradient_unit_t musvg_gradient_unit_t;
 typedef enum musvg_spread_method_t musvg_spread_method_t;
-typedef enum musvg_element_t musvg_element_t;
-typedef enum musvg_attr_t musvg_attr_t;
+typedef enum musvg_element musvg_element;
+typedef enum musvg_attr musvg_attr;
 typedef enum musvg_type_t musvg_type_t;
 #endif
 
@@ -87,7 +88,7 @@ enum musvg_format_t {
     musvg_format_binary_vf,
     musvg_format_binary_ieee,
 };
-enum musvg_element_t {
+enum musvg_element {
     musvg_element_none,
     musvg_element_svg,
     musvg_element_g,
@@ -104,7 +105,7 @@ enum musvg_element_t {
     musvg_element_stop,
     musvg_element_limit = musvg_element_stop
 };
-enum musvg_attr_t {
+enum musvg_attr {
     musvg_attr_none,
     musvg_attr_display,
     musvg_attr_fill,
@@ -429,8 +430,10 @@ musvg_span musvg_read_fd(int fd);
 
 /* delta api */
 
-int musvg_attr_set_value(musvg_parser *p, musvg_node *node, musvg_attr_t attr, const char *value, size_t len);
-int musvg_attr_get_value(musvg_parser *p, musvg_node *node, musvg_attr_t attr, char *value, size_t *len);
+int musvg_node_attr_types(musvg_parser *p, musvg_node *node, musvg_attr *types, size_t *count);
+int musvg_node_attr_slots(musvg_parser *p, musvg_node *node, musvg_index *slots, size_t *count);
+int musvg_attr_value_set(musvg_parser *p, musvg_node *node, musvg_attr attr, const char *value, size_t len);
+int musvg_attr_value_get(musvg_parser *p, musvg_node *node, musvg_attr attr, char *value, size_t *len);
 
 #ifdef __cplusplus
 }
