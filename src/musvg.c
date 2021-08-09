@@ -1841,11 +1841,12 @@ static inline char* fetch_string(musvg_parser *p, musvg_index storage)
 
 static inline musvg_slot * find_slot(musvg_parser *p, const musvg_node *node, musvg_attr attr)
 {
-    musvg_index slot_idx = node->attr;
-    while (slot_idx) {
+    musvg_index slot_idx = 0, next_idx = node->attr;
+    while (slot_idx != next_idx) {
+        slot_idx = next_idx;
         musvg_slot *slot = slots_get(p, slot_idx);
         if (slot->type == attr) return slot;
-        slot_idx = slot->left;
+        next_idx = slot_idx + slot->left;
     }
     return NULL;
 }
@@ -1876,7 +1877,8 @@ static inline musvg_index alloc_attr(musvg_parser *p, musvg_node *node, musvg_at
     size_t type = musvg_attr_types[attr];
     size_t size = musvg_type_storage[type].size;
     size_t align = musvg_type_storage[type].align;
-    musvg_slot o = { attr, storage_alloc(p, size, align), node->attr };
+    musvg_index last_idx = node->attr ? node->attr - slots_count(p) : 0;
+    musvg_slot o = { attr, storage_alloc(p, size, align), last_idx };
     node->attr = slots_add(p,&o);
     return o.storage;
 }
@@ -2963,8 +2965,9 @@ void musvg_parser_dump(musvg_parser* p)
         printf("%7" _PRIDX "%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%7" _PRIDX "%7" _PRIDX "%7s%5s%7s%5s <%s>\n",
             node_idx, parent_idx, node->type, node->left, node->down, node->attr, "", "", "", "",
             musvg_element_names[node->type]);
-        musvg_index slot_idx = node->attr;
-        while (slot_idx) {
+        musvg_index slot_idx = 0, next_idx = node->attr;
+        while (slot_idx != next_idx) {
+            slot_idx = next_idx;
             musvg_slot *slot = slots_get(p, slot_idx);
             musvg_attr attr = slot->type;
             musvg_type_t type = musvg_attr_types[attr];
@@ -2983,7 +2986,7 @@ void musvg_parser_dump(musvg_parser* p)
                 "", "", "", "", "", slot_idx, attr, slot->left, slot->storage,
                 type_size, musvg_attribute_names[attr], type_name, buf->data);
             mu_buf_destroy(buf);
-            slot_idx = slot->left;
+            next_idx = slot_idx + slot->left;
         }
     }
 }
@@ -3047,23 +3050,24 @@ musvg_span musvg_read_fd(int fd)
 int musvg_node_attr_types(musvg_parser *p, musvg_node *node, musvg_attr *types, size_t *count)
 {
     size_t input_count = *count, i = 0, j = 0;
-    musvg_index *slot_idx_ptr, slot_idx;
 
-    slot_idx_ptr = &node->attr;
-    while ((slot_idx = *slot_idx_ptr)) {
+    musvg_index slot_idx = 0, next_idx = node->attr;
+    while (slot_idx != next_idx) {
+        slot_idx = next_idx;
         musvg_slot *slot = slots_get(p, slot_idx);
-        slot_idx_ptr = &slot->left;
+        next_idx = slot_idx + slot->left;
         i++;
     }
 
     if (types) {
-        slot_idx_ptr = &node->attr;
-        while ((slot_idx = *slot_idx_ptr)) {
+        musvg_index slot_idx = 0, next_idx = node->attr;
+        while (slot_idx != next_idx) {
+            slot_idx = next_idx;
             musvg_slot *slot = slots_get(p, slot_idx);
             if (i-j-1 < input_count) {
                 types[i-j-1] = slot->type;
             }
-            slot_idx_ptr = &slot->left;
+            next_idx = slot_idx + slot->left;
             j++;
         }
     }
@@ -3075,23 +3079,24 @@ int musvg_node_attr_types(musvg_parser *p, musvg_node *node, musvg_attr *types, 
 int musvg_node_attr_slots(musvg_parser *p, musvg_node *node, musvg_index *slots, size_t *count)
 {
     size_t input_count = *count, i = 0, j = 0;
-    musvg_index *slot_idx_ptr, slot_idx;
 
-    slot_idx_ptr = &node->attr;
-    while ((slot_idx = *slot_idx_ptr)) {
+    musvg_index slot_idx = 0, next_idx = node->attr;
+    while (slot_idx != next_idx) {
+        slot_idx = next_idx;
         musvg_slot *slot = slots_get(p, slot_idx);
-        slot_idx_ptr = &slot->left;
+        next_idx = slot_idx + slot->left;
         i++;
     }
 
     if (slots) {
-        slot_idx_ptr = &node->attr;
-        while ((slot_idx = *slot_idx_ptr)) {
+        musvg_index slot_idx = 0, next_idx = node->attr;
+        while (slot_idx != next_idx) {
+            slot_idx = next_idx;
             musvg_slot *slot = slots_get(p, slot_idx);
             if (i-j-1 < input_count) {
                 slots[i-j-1] = slot_idx;
             }
-            slot_idx_ptr = &slot->left;
+            next_idx = slot_idx + slot->left;
             j++;
         }
     }
