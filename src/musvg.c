@@ -287,29 +287,29 @@ typedef struct musvg_node musvg_node;
 
 struct musvg_slot
 {
-    musvg_attr type;
-    musvg_index storage; /* absolute index to storage */
-    musvg_index left;    /* relative index to adjacent attribute */
+    musvg_attr type;           /* attribute type */
+    musvg_index storage;       /* absolute index to storage */
+    musvg_index left;          /* relative index to sibling attribute */
 };
 
 struct musvg_node
 {
-    musvg_element type;
-    musvg_index left;    /* relative index to adjacent node */
-    musvg_index down;    /* relative index to child node */
-    musvg_index attr;    /* absolute index to slot */
+    musvg_element type;        /* element type */
+    musvg_index left;          /* relative index to sibling node */
+    musvg_index down;          /* relative index to child node */
+    musvg_index attr;          /* absolute index to slot */
 };
 
 struct musvg_parser
 {
-    array_buffer points;
-    array_buffer path_ops;
-    array_buffer path_points;
-    array_buffer brushes;
-    array_buffer nodes;
-    array_buffer slots;
-    storage_buffer storage;
-    storage_buffer strings;
+    array_buffer points;       /* polygon points */
+    array_buffer path_ops;     /* path ops */
+    array_buffer path_points;  /* path op points */
+    array_buffer brushes;      /* brushes*/
+    array_buffer nodes;        /* node graph */
+    array_buffer slots;        /* attribute storage slot linked list */
+    storage_buffer storage;    /* aligned attribute value storage */
+    storage_buffer strings;    /* variable length string storage */
 
     musvg_index node_stack[musvg_max_depth];
     uint node_depth;
