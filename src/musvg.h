@@ -37,7 +37,26 @@ typedef unsigned uint;
 typedef long long llong;
 typedef unsigned long long ullong;
 typedef signed char musvg_small;
+
+#ifdef __SIZEOF_POINTER__
+# define MUSVG_POINTER_SIZE __SIZEOF_POINTER__
+#elif defined(_WIN64)
+# define MUSVG_POINTER_SIZE 8
+#elif defined(_WIN32)
+# define MUSVG_POINTER_SIZE 4
+#elif defined(_MSC_VER)
+# error "could not determine MUSVG_POINTER_SIZE constant for MSVC"
+#else
+# define MUSVG_POINTER_SIZE sizeof(void *)
+#endif
+
+#if MUSVG_POINTER_SIZE == 4
 typedef int musvg_index;
+#define MUSVG_INDEX_FORMAT "d"
+#elif MUSVG_POINTER_SIZE == 8
+typedef llong musvg_index;
+#define MUSVG_INDEX_FORMAT "lld"
+#endif
 
 #ifndef __cplusplus
 typedef enum musvg_path_opcode_t musvg_path_opcode_t;
@@ -293,7 +312,7 @@ struct musvg_span
 
 struct musvg_id
 {
-    uint name;
+    musvg_index name;
 };
 
 struct musvg_length
@@ -339,8 +358,8 @@ struct musvg_aspectratio
 
 struct musvg_points
 {
-    uint point_offset;
-    uint point_count;
+    musvg_index point_offset;
+    musvg_index point_count;
 };
 
 struct musvg_path_op
@@ -350,8 +369,8 @@ struct musvg_path_op
 
 struct musvg_path_d
 {
-    uint op_offset;
-    uint op_count;
+    musvg_index op_offset;
+    musvg_index op_count;
 };
 
 // SVG type metadata

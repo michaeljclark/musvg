@@ -72,7 +72,7 @@ static void array_buffer_destroy(array_buffer *sb)
     sb->data = NULL;
 }
 
-static uint array_buffer_count(array_buffer *sb)
+static size_t array_buffer_count(array_buffer *sb)
 {
     return sb->count;
 }
@@ -109,10 +109,10 @@ static void array_buffer_resize(array_buffer *sb, size_t stride, size_t count)
     }
 }
 
-static uint array_buffer_add(array_buffer *sb, size_t stride, void *ptr)
+static size_t array_buffer_add(array_buffer *sb, size_t stride, void *ptr)
 {
     array_buffer_resize(sb, stride, 1);
-    uint idx = sb->count++;
+    size_t idx = sb->count++;
     memcpy(sb->data + (idx * stride), ptr, stride);
     return idx;
 }
@@ -120,7 +120,7 @@ static uint array_buffer_add(array_buffer *sb, size_t stride, void *ptr)
 static void* array_buffer_alloc(array_buffer *sb, size_t stride, size_t count)
 {
     array_buffer_resize(sb, stride, count);
-    uint idx = sb->count;
+    size_t idx = sb->count;
     sb->count += count;
     return sb->data + (idx * stride);
 }
@@ -184,11 +184,11 @@ static void storage_buffer_resize(storage_buffer *sb, size_t offset)
     }
 }
 
-static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
+static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 {
     size_t offset = sb->offset, max_align = align > 8 ? 8 : align;
-    uint our_offset = (offset + max_align - 1) & ~(max_align - 1);
-    uint align_size = (size   + max_align - 1) & ~(max_align - 1);
+    size_t our_offset = (offset + max_align - 1) & ~(max_align - 1);
+    size_t align_size = (size   + max_align - 1) & ~(max_align - 1);
     storage_buffer_resize(sb, our_offset + align_size);
     sb->offset = our_offset + align_size;
     return our_offset;
@@ -276,7 +276,6 @@ static uint storage_buffer_alloc(storage_buffer *sb, size_t size, size_t align)
 #define strings_destroy(p) storage_buffer_destroy(&p->strings)
 
 static inline musvg_attr as_attr(int i) { return (musvg_attr)i; }
-static inline uint as_uint(ullong i) { return (uint)i; }
 
 enum { musvg_max_depth = 256 };
 enum { musvg_node_sentinel = -1 };
@@ -1988,14 +1987,14 @@ int musvg_read_binary_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg
     musvg_path_d *pd = (musvg_path_d*)attr_pointer(p, node, attr);
     ullong count = 0;
     assert(!mu_leb_u64_read(buf, &count));
-    musvg_path_d ops = { path_ops_count(p), as_uint(count) };
+    musvg_path_d ops = { path_ops_count(p), count };
     *pd = ops;
     for (uint j = 0; j < ops.op_count; j++) {
         ullong count = 0; musvg_small code = 0;
         assert(mu_buf_read_i8(buf, (int8_t*)&code));
         assert(!mu_leb_u64_read(buf, &count));
         musvg_path_op op = { code };
-        musvg_points points = { points_count(p), as_uint(count) };
+        musvg_points points = { points_count(p), count };
         path_ops_add(p, &op);
         path_points_add(p, &points);
         float *points_arr = points_alloc(p, points.point_count);
@@ -2009,7 +2008,7 @@ int musvg_read_binary_points(musvg_parser *p, mu_buf *buf, musvg_node *node, mus
     musvg_points *pp = (musvg_points*)attr_pointer(p, node, attr);
     ullong count = 0;
     assert(!mu_leb_u64_read(buf, &count));
-    musvg_points points = { points_count(p), as_uint(count) };
+    musvg_points points = { points_count(p), count };
     *pp = points;
     float *points_arr = points_alloc(p, points.point_count);
     assert(!p->f32_read_vec(buf, points_arr, points.point_count));
@@ -2110,7 +2109,7 @@ int musvg_write_binary_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musv
     musvg_path_d ops = *(musvg_path_d*)attr_pointer(p, node, attr);
     ullong count = ops.op_count;
     assert(!mu_leb_u64_write(buf, &count));
-    for (uint j = 0; j < ops.op_count; j++) {
+    for (musvg_index j = 0; j < ops.op_count; j++) {
         const  musvg_path_op *op = path_ops_get(p, ops.op_offset + j);
         const  musvg_points *points = path_points_get(p, ops.op_offset + j);
         musvg_small code = op->code;
@@ -2322,14 +2321,14 @@ int musvg_write_text_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_
 {
     musvg_path_d ops = *(musvg_path_d*)attr_pointer(p, node, attr);
     char last_code = 0;
-    for (uint j = 0; j < ops.op_count; j++) {
+    for (musvg_index j = 0; j < ops.op_count; j++) {
         char str[128];
         const musvg_path_op *op = path_ops_get(p, ops.op_offset + j);
         const musvg_points *points = path_points_get(p, ops.op_offset + j);
         int8_t code = musvg_path_opcode_t_cmd_char(op->code);
         assert(mu_buf_write_i8(buf, code != last_code ? code : ' '));
         const float *v = points_get(p, points->point_offset);
-        for (uint k = 0; k < points->point_count; k++) {
+        for (musvg_index k = 0; k < points->point_count; k++) {
             if (k > 0) assert(mu_buf_write_i8(buf, ','));
             int len = snprintf(str, sizeof(str), "%.8g", v[k]);
             assert(mu_buf_write_bytes(buf, str, len) == len);
@@ -2343,7 +2342,7 @@ int musvg_write_text_points(musvg_parser *p, mu_buf *buf, musvg_node *node, musv
 {
     musvg_points points = *(musvg_points*)attr_pointer(p, node, attr);
     const float *v = points_get(p, points.point_offset);
-    for (uint j = 0; j < points.point_count; j++) {
+    for (musvg_index j = 0; j < points.point_count; j++) {
         char str[128];
         if (j > 0) assert(mu_buf_write_i8(buf, j % 2 ? ',' : ' '));
         int len = snprintf(str, sizeof(str), "%.8g", v[j]);
@@ -2826,6 +2825,7 @@ musvg_parser* musvg_parser_create()
     storage_init(p);
     strings_init(p);
 
+    /* reserve element 0 */
     musvg_slot slot = { 0 };
     slots_add(p,&slot);
     storage_alloc(p,1,1);
@@ -2910,6 +2910,9 @@ void musvg_parser_stats(musvg_parser* p)
 
 // dump
 
+#define _PRIDX MUSVG_INDEX_FORMAT
+#define _PRTYPE "d"
+
 void musvg_parser_dump(musvg_parser* p)
 {
     printf("%7s%5s%7s%7s%7s%5s%7s%5s %s\n",
@@ -2919,7 +2922,7 @@ void musvg_parser_dump(musvg_parser* p)
         "------------------------------------");
     for (musvg_index node_idx = 0; node_idx < p->nodes.count; node_idx++) {
         musvg_node *node = nodes_get(p, node_idx);
-        printf("%7d%5d%7d%7d%7s%5s%7s%5s <%s>\n",
+        printf("%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%7" _PRIDX "%7s%5s%7s%5s <%s>\n",
             node_idx, node->type, node->left, node->down, "", "", "", "",
             musvg_element_names[node->type]);
         musvg_index slot_idx = node->attr;
@@ -2938,7 +2941,7 @@ void musvg_parser_dump(musvg_parser* p)
                 buf->data[21] = '\0';
             }
             mu_buf_write_i8(buf, 0);
-            printf("%7s%5s%7s%7s%7d%5d%7d%5zu  %s: %s(\"%s\")\n",
+            printf("%7s%5s%7s%7s%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%5zu  %s: %s(\"%s\")\n",
                 "", "", "", "", slot_idx, attr, slot->storage,
                 type_size, musvg_attribute_names[attr], type_name, buf->data);
             mu_buf_destroy(buf);
