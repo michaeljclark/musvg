@@ -1781,7 +1781,44 @@ static musvg_index musvg_node_index(musvg_parser *p, musvg_node *node)
 
 static musvg_index musvg_node_parent(musvg_parser *p, musvg_node *node)
 {
-    /* TODO find parent node */
+    /*
+     * find parent node
+     *
+     * parent down links to the last sibling so we scan forwards to find
+     * the last sibling then backwards to find a down link pointing to it.
+     *
+     * this current algorithm is brute-force. we should limit forward
+     * scanning to nodes that we know are at or below our depth and we
+     * can scan over child nodes, although we can't depend on pre-order.
+     *
+     * perhaps create an auxiliary parent index.
+     */
+
+    musvg_node *nodes = nodes_get(p, 0);
+    ullong our_idx = (ullong)(node - nodes);
+    ullong i = our_idx, last_idx = our_idx;
+
+    /* scan forwards to find last sibling */
+    while (++i < nodes_count(p)) {
+        ullong left_idx = i + nodes[i].left;
+
+        if (left_idx == i) {                      /* skip terminators */
+
+        } else if (left_idx == last_idx) {        /* track earliest sibling. */
+            last_idx = i;
+        }
+    }
+
+    /* scan backwards to find parent */
+    while (i-- > 0) {
+        ullong down_idx = i + nodes[i].down;
+
+        if (down_idx == i) {                      /* skip terminators */
+
+        } else if (down_idx == last_idx) {        /* found parent. */
+            return i;
+        }
+    }
 
     return musvg_node_sentinel;
 }
@@ -2915,15 +2952,16 @@ void musvg_parser_stats(musvg_parser* p)
 
 void musvg_parser_dump(musvg_parser* p)
 {
-    printf("%7s%5s%7s%7s%7s%5s%7s%5s %s\n",
-        "node", "type", "left", "down", "attr", "type", "disp", "size", "value");
-    printf("%7s%5s%7s%7s%7s%5s%7s%5s %s\n",
-        "------", "----", "------", "------", "------", "----", "------", "----",
+    printf("%7s%7s%5s%7s%7s%7s%5s%7s%7s%5s %s\n",
+        "node", "parent", "type", "left", "down", "attr", "type", "left", "disp", "size", "value");
+    printf("%7s%7s%5s%7s%7s%7s%5s%7s%7s%5s %s\n",
+        "------", "------", "----", "------", "------", "------", "----", "------", "------", "----",
         "------------------------------------");
     for (musvg_index node_idx = 0; node_idx < p->nodes.count; node_idx++) {
         musvg_node *node = nodes_get(p, node_idx);
-        printf("%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%7" _PRIDX "%7s%5s%7s%5s <%s>\n",
-            node_idx, node->type, node->left, node->down, "", "", "", "",
+        musvg_index parent_idx = musvg_node_parent(p, node);
+        printf("%7" _PRIDX "%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%7" _PRIDX "%7" _PRIDX "%7s%5s%7s%5s <%s>\n",
+            node_idx, parent_idx, node->type, node->left, node->down, node->attr, "", "", "", "",
             musvg_element_names[node->type]);
         musvg_index slot_idx = node->attr;
         while (slot_idx) {
@@ -2941,8 +2979,8 @@ void musvg_parser_dump(musvg_parser* p)
                 buf->data[21] = '\0';
             }
             mu_buf_write_i8(buf, 0);
-            printf("%7s%5s%7s%7s%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%5zu  %s: %s(\"%s\")\n",
-                "", "", "", "", slot_idx, attr, slot->storage,
+            printf("%7s%7s%5s%7s%7s%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%7" _PRIDX "%5zu  %s: %s(\"%s\")\n",
+                "", "", "", "", "", slot_idx, attr, slot->left, slot->storage,
                 type_size, musvg_attribute_names[attr], type_name, buf->data);
             mu_buf_destroy(buf);
             slot_idx = slot->left;
