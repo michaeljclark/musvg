@@ -441,7 +441,7 @@ int musvg_parse_buffer(musvg_parser* p, musvg_format_t format, mu_buf *buf);
 int musvg_parse_file(musvg_parser* p, musvg_format_t format, const char *filename);
 int musvg_parse_fd(musvg_parser* p, musvg_format_t format, int fd);
 
-typedef void (*musvg_node_visit_fn)(musvg_parser *, void *, musvg_node *, uint depth, uint close);
+typedef void (*musvg_node_visit_fn)(musvg_parser *, void *, musvg_index, uint depth, uint close);
 void musvg_visit(musvg_parser* p, void *userdata, musvg_node_visit_fn begin_fn, musvg_node_visit_fn end_fn);
 
 musvg_span musvg_read_file(const char* filename);
@@ -449,10 +449,10 @@ musvg_span musvg_read_fd(int fd);
 
 /* delta api */
 
-int musvg_node_attr_types(musvg_parser *p, musvg_node *node, musvg_attr *types, size_t *count);
-int musvg_node_attr_slots(musvg_parser *p, musvg_node *node, musvg_index *slots, size_t *count);
-int musvg_attr_value_set(musvg_parser *p, musvg_node *node, musvg_attr attr, const char *value, size_t len);
-int musvg_attr_value_get(musvg_parser *p, musvg_node *node, musvg_attr attr, char *value, size_t *len);
+int musvg_node_attr_types(musvg_parser *p, musvg_index node_idx, musvg_attr *types, size_t *count);
+int musvg_node_attr_slots(musvg_parser *p, musvg_index node_idx, musvg_index *slots, size_t *count);
+int musvg_attr_value_set(musvg_parser *p, musvg_index node_idx, musvg_attr attr, const char *value, size_t len);
+int musvg_attr_value_get(musvg_parser *p, musvg_index node_idx, musvg_attr attr, char *value, size_t *len);
 
 #ifdef __cplusplus
 }

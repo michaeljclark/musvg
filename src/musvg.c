@@ -244,7 +244,7 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define nodes_capacity(p) array_buffer_capacity(&p->nodes,sizeof(musvg_node))
 #define nodes_get(p,idx) ((musvg_node*)array_buffer_get(&p->nodes,sizeof(musvg_node),idx))
 #define nodes_resize(p) array_buffer_resize(&p->nodes,sizeof(musvg_node))
-#define nodes_alloc(p,count) array_buffer_alloc(&p->nodes,sizeof(musvg_node),count)
+#define nodes_alloc(p,count) (musvg_node*)array_buffer_alloc(&p->nodes,sizeof(musvg_node),count)
 #define nodes_destroy(p) array_buffer_destroy(&p->nodes)
 
 #define slots_init(p) array_buffer_init(&p->slots,sizeof(musvg_slot),16)
@@ -1738,9 +1738,9 @@ static musvg_path_d musvg_parse_path_ops(musvg_parser *p, const char *s)
 
 // SVG node stack
 
-static musvg_node* musvg_node_add(musvg_parser *p, musvg_element type)
+static musvg_index musvg_node_add(musvg_parser *p, musvg_element type)
 {
-    musvg_node *node = (musvg_node*)nodes_alloc(p, 1);
+    musvg_node *node = nodes_alloc(p, 1);
 
     node->type = type;
     node->left = 0;
@@ -1750,7 +1750,7 @@ static musvg_node* musvg_node_add(musvg_parser *p, musvg_element type)
     uint depth = p->node_depth++;
     if (depth == musvg_max_depth) abort();
 
-    musvg_index sibling_idx = p->node_stack[depth];
+    musvg_index adjacent_idx = p->node_stack[depth];
     musvg_index current_idx = p->node_stack[depth] = nodes_count(p) - 1;
     musvg_index parent_idx = depth > 0 ? p->node_stack[depth-1] : 0;
 
@@ -1758,13 +1758,13 @@ static musvg_node* musvg_node_add(musvg_parser *p, musvg_element type)
     nodes_get(p, parent_idx)->down = current_idx - parent_idx;
 
     /* point new child node to prior sibling node */
-    if (sibling_idx == (musvg_index)musvg_node_sentinel) {
+    if (adjacent_idx == (musvg_index)musvg_node_sentinel) {
         nodes_get(p, current_idx)->left = 0;
     } else {
-        nodes_get(p, current_idx)->left = sibling_idx - current_idx;
+        nodes_get(p, current_idx)->left = adjacent_idx - current_idx;
     }
 
-    return node;
+    return (musvg_index)(node - nodes_get(p, 0));
 }
 
 static void musvg_stack_pop(musvg_parser *p)
@@ -1774,12 +1774,7 @@ static void musvg_stack_pop(musvg_parser *p)
     p->node_stack[depth] = (musvg_index)musvg_node_sentinel;
 }
 
-static musvg_index musvg_node_index(musvg_parser *p, musvg_node *node)
-{
-    return (musvg_index)(node - nodes_get(p, 0));
-}
-
-static musvg_index musvg_node_parent(musvg_parser *p, musvg_node *node)
+static musvg_index musvg_node_parent(musvg_parser *p, musvg_index node_idx)
 {
     /*
      * find parent node
@@ -1794,13 +1789,11 @@ static musvg_index musvg_node_parent(musvg_parser *p, musvg_node *node)
      * perhaps create an auxiliary parent index.
      */
 
-    musvg_node *nodes = nodes_get(p, 0);
-    ullong our_idx = (ullong)(node - nodes);
-    ullong i = our_idx, last_idx = our_idx;
+    ullong i = node_idx, last_idx = node_idx;
 
     /* scan forwards to find last sibling */
     while (++i < nodes_count(p)) {
-        ullong left_idx = i + nodes[i].left;
+        musvg_index left_idx = i + nodes_get(p,i)->left;
 
         if (left_idx == i) {                      /* skip terminators */
 
@@ -1811,7 +1804,7 @@ static musvg_index musvg_node_parent(musvg_parser *p, musvg_node *node)
 
     /* scan backwards to find parent */
     while (i-- > 0) {
-        ullong down_idx = i + nodes[i].down;
+        musvg_index down_idx = i + nodes_get(p,i)->down;
 
         if (down_idx == i) {                      /* skip terminators */
 
@@ -1839,9 +1832,9 @@ static inline char* fetch_string(musvg_parser *p, musvg_index storage)
     return (char*)strings_get(p, storage);
 }
 
-static inline musvg_slot * find_slot(musvg_parser *p, const musvg_node *node, musvg_attr attr)
+static inline musvg_slot * find_slot(musvg_parser *p, const musvg_index node_idx, musvg_attr attr)
 {
-    musvg_index slot_idx = 0, next_idx = node->attr;
+    musvg_index slot_idx = 0, next_idx = nodes_get(p, node_idx)->attr;
     while (slot_idx != next_idx) {
         slot_idx = next_idx;
         musvg_slot *slot = slots_get(p, slot_idx);
@@ -1851,39 +1844,40 @@ static inline musvg_slot * find_slot(musvg_parser *p, const musvg_node *node, mu
     return NULL;
 }
 
-static inline musvg_index find_attr(musvg_parser *p, const musvg_node *node, musvg_attr attr)
+static inline musvg_index find_attr(musvg_parser *p, const musvg_index node_idx, musvg_attr attr)
 {
-    musvg_slot * slot = find_slot(p, node, attr);
+    musvg_slot * slot = find_slot(p, node_idx, attr);
 
     /* zero offset is reserved and means not found */
     return slot ? slot->storage : 0;
 }
 
-static musvg_index find_attr_parent(musvg_parser *p, musvg_node *node, musvg_attr attr)
+static musvg_index find_attr_parent(musvg_parser *p, musvg_index node_idx, musvg_attr attr)
 {
     /* find node attribute, if not found retry with parent */
     musvg_index storage;
-    while ((storage = find_attr(p, node, attr)) == 0) {
-        musvg_index parent_idx = musvg_node_parent(p, node);
+    while ((storage = find_attr(p, node_idx, attr)) == 0) {
+        musvg_index parent_idx = musvg_node_parent(p, node_idx);
         if (parent_idx == (musvg_index)musvg_node_sentinel) break;
-        node = nodes_get(p, parent_idx);
+        node_idx = parent_idx;
     }
     return storage;
 }
 
-static inline musvg_index alloc_attr(musvg_parser *p, musvg_node *node, musvg_attr attr)
+static inline musvg_index alloc_attr(musvg_parser *p, musvg_index node_idx, musvg_attr attr)
 {
     /* allocate aligned storage space */
     size_t type = musvg_attr_types[attr];
     size_t size = musvg_type_storage[type].size;
     size_t align = musvg_type_storage[type].align;
+    musvg_node *node = nodes_get(p, node_idx);
     musvg_index last_idx = node->attr ? node->attr - slots_count(p) : 0;
     musvg_slot o = { attr, storage_alloc(p, size, align), last_idx };
     node->attr = slots_add(p,&o);
     return o.storage;
 }
 
-static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg_attr attr)
+static inline musvg_small* attr_pointer(musvg_parser *p, musvg_index node_idx, musvg_attr attr)
 {
     /*
      * search for the attribute in this nodes attr slot table, and if not
@@ -1896,16 +1890,16 @@ static inline musvg_small* attr_pointer(musvg_parser *p, musvg_node *node, musvg
      * supported because an allocation can cause a previously fetched pointer
      * to be invalidated due to a call to realloc in alloc_attr.
      */
-    musvg_index storage = find_attr(p, node, attr);
+    musvg_index storage = find_attr(p, node_idx, attr);
     if (storage == 0) {
-        storage = alloc_attr(p, node, attr);
+        storage = alloc_attr(p, node_idx, attr);
     }
     return (musvg_small*)storage_get(p, storage);
 }
 
-static inline musvg_small* attr_pointer_parent(musvg_parser *p, musvg_node *node, musvg_attr attr)
+static inline musvg_small* attr_pointer_parent(musvg_parser *p, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_index storage = find_attr_parent(p, node, attr);
+    musvg_index storage = find_attr_parent(p, node_idx, attr);
     if (storage == 0) {
         return NULL;
     }
@@ -1924,17 +1918,17 @@ static inline musvg_small enum_modulus(musvg_attr attr)
 
 // binary readers
 
-int musvg_read_binary_enum(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_enum(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_small *enum_value = (musvg_small*)attr_pointer(p, node, attr);
+    musvg_small *enum_value = (musvg_small*)attr_pointer(p, node_idx, attr);
     assert(mu_buf_read_i8(buf, enum_value));
     *enum_value = *enum_value  % enum_modulus(attr);
     return 0;
 }
 
-int musvg_read_binary_id(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_id(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_id *id = (musvg_id*)attr_pointer(p, node, attr);
+    musvg_id *id = (musvg_id*)attr_pointer(p, node_idx, attr);
     char id_str[128] = { 0 };
     ullong id_len = 0;
     assert(!mu_leb_u64_read(buf, &id_len));
@@ -1944,17 +1938,17 @@ int musvg_read_binary_id(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_a
     return 0;
 }
 
-int musvg_read_binary_length(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_length(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_length *length = (musvg_length*)attr_pointer(p, node, attr);
+    musvg_length *length = (musvg_length*)attr_pointer(p, node_idx, attr);
     assert(!p->f32_read(buf, &length->value));
     assert(mu_buf_read_i8(buf, &length->units));
     return 0;
 }
 
-int musvg_read_binary_color(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_color(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_color *color = (musvg_color*)attr_pointer(p, node, attr);
+    musvg_color *color = (musvg_color*)attr_pointer(p, node_idx, attr);
     uint8_t type;
     assert(mu_buf_read_i8(buf, (int8_t*)&type));
     color->type = type;
@@ -1973,9 +1967,9 @@ int musvg_read_binary_color(musvg_parser *p, mu_buf *buf, musvg_node *node, musv
     return 0;
 }
 
-int musvg_read_binary_transform(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_transform(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_transform *xf = (musvg_transform*)attr_pointer(p, node, attr);
+    musvg_transform *xf = (musvg_transform*)attr_pointer(p, node_idx, attr);
     assert(mu_buf_read_i8(buf, (int8_t*)&xf->type));
     if (xf->type == musvg_transform_matrix) {
         xf->nargs = 0;
@@ -1987,24 +1981,24 @@ int musvg_read_binary_transform(musvg_parser *p, mu_buf *buf, musvg_node *node, 
     return 0;
 }
 
-int musvg_read_binary_dasharray(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_dasharray(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_dasharray *da = (musvg_dasharray*)attr_pointer(p, node, attr);
+    musvg_dasharray *da = (musvg_dasharray*)attr_pointer(p, node_idx, attr);
     assert(mu_buf_read_i8(buf, (int8_t*)&da->count));
     assert(!p->f32_read_vec(buf, da->dashes, da->count));
     return 0;
 }
 
-int musvg_read_binary_float(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_float(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    float *value = (float*)attr_pointer(p, node, attr);
+    float *value = (float*)attr_pointer(p, node_idx, attr);
     assert(!p->f32_read(buf, value));
     return 0;
 }
 
-int musvg_read_binary_viewbox(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_viewbox(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_viewbox *vb = (musvg_viewbox*)attr_pointer(p, node, attr);
+    musvg_viewbox *vb = (musvg_viewbox*)attr_pointer(p, node_idx, attr);
     assert(!p->f32_read(buf, &vb->x));
     assert(!p->f32_read(buf, &vb->y));
     assert(!p->f32_read(buf, &vb->width));
@@ -2012,18 +2006,18 @@ int musvg_read_binary_viewbox(musvg_parser *p, mu_buf *buf, musvg_node *node, mu
     return 0;
 }
 
-int musvg_read_binary_aspectratio(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_aspectratio(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_aspectratio *ar = (musvg_aspectratio*)attr_pointer(p, node, attr);
+    musvg_aspectratio *ar = (musvg_aspectratio*)attr_pointer(p, node_idx, attr);
     assert(mu_buf_read_i8(buf, &ar->alignX));
     assert(mu_buf_read_i8(buf, &ar->alignY));
     assert(mu_buf_read_i8(buf, &ar->alignType));
     return 0;
 }
 
-int musvg_read_binary_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_path_d *pd = (musvg_path_d*)attr_pointer(p, node, attr);
+    musvg_path_d *pd = (musvg_path_d*)attr_pointer(p, node_idx, attr);
     ullong count = 0;
     assert(!mu_leb_u64_read(buf, &count));
     musvg_path_d ops = { path_ops_count(p), count };
@@ -2042,9 +2036,9 @@ int musvg_read_binary_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg
     return 0;
 }
 
-int musvg_read_binary_points(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_read_binary_points(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_points *pp = (musvg_points*)attr_pointer(p, node, attr);
+    musvg_points *pp = (musvg_points*)attr_pointer(p, node_idx, attr);
     ullong count = 0;
     assert(!mu_leb_u64_read(buf, &count));
     musvg_points points = { points_count(p), count };
@@ -2056,16 +2050,16 @@ int musvg_read_binary_points(musvg_parser *p, mu_buf *buf, musvg_node *node, mus
 
 // binary writers
 
-int musvg_write_binary_enum(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_enum(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_small value = *attr_pointer(p, node, attr) % enum_modulus(attr);
+    const musvg_small value = *attr_pointer(p, node_idx, attr) % enum_modulus(attr);
     assert(mu_buf_write_i8(buf, value));
     return 0;
 }
 
-int musvg_write_binary_id(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_id(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_id id = *(musvg_id*)attr_pointer(p, node, attr);
+    const musvg_id id = *(musvg_id*)attr_pointer(p, node_idx, attr);
     const char* id_str = fetch_string(p, id.name);
     const ullong id_len = strlen(id_str);
     assert(!mu_leb_u64_write(buf, &id_len));
@@ -2073,17 +2067,17 @@ int musvg_write_binary_id(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_
     return 0;
 }
 
-int musvg_write_binary_length(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_length(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_length length = *(musvg_length*)attr_pointer(p, node, attr);
+    const musvg_length length = *(musvg_length*)attr_pointer(p, node_idx, attr);
     assert(!p->f32_write(buf, length.value));
     assert(mu_buf_write_i8(buf, length.units) == 1);
     return 0;
 }
 
-int musvg_write_binary_color(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_color(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_color color = *(musvg_color*)attr_pointer(p, node, attr);
+    const musvg_color color = *(musvg_color*)attr_pointer(p, node_idx, attr);
     assert(mu_buf_write_i8(buf, (int8_t)color.type));
     if (color.type == musvg_color_type_rgba) {
         assert(mu_buf_write_i32(buf, (int32_t)color.data));
@@ -2096,9 +2090,9 @@ int musvg_write_binary_color(musvg_parser *p, mu_buf *buf, musvg_node *node, mus
     return 0;
 }
 
-int musvg_write_binary_transform(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_transform(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_transform xf = *(musvg_transform*)attr_pointer(p, node, attr);
+    const musvg_transform xf = *(musvg_transform*)attr_pointer(p, node_idx, attr);
     assert(mu_buf_write_i8(buf, (int8_t)xf.type));
     if (xf.type == musvg_transform_matrix) {
         assert(!p->f32_write_vec(buf, xf.xform, 6));
@@ -2109,24 +2103,24 @@ int musvg_write_binary_transform(musvg_parser *p, mu_buf *buf, musvg_node *node,
     return 0;
 }
 
-int musvg_write_binary_dasharray(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_dasharray(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_dasharray da = *(musvg_dasharray*)attr_pointer(p, node, attr);
+    const musvg_dasharray da = *(musvg_dasharray*)attr_pointer(p, node_idx, attr);
     assert(mu_buf_write_i8(buf, (int8_t)da.count));
     assert(!p->f32_write_vec(buf, da.dashes, da.count));
     return 0;
 }
 
-int musvg_write_binary_float(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_float(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const float value = *(float*)attr_pointer(p, node, attr);
+    const float value = *(float*)attr_pointer(p, node_idx, attr);
     assert(!p->f32_write(buf, value));
     return 0;
 }
 
-int musvg_write_binary_viewbox(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_viewbox(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_viewbox vb = *(musvg_viewbox*)attr_pointer(p, node, attr);
+    const musvg_viewbox vb = *(musvg_viewbox*)attr_pointer(p, node_idx, attr);
     assert(!p->f32_write(buf, vb.x));
     assert(!p->f32_write(buf, vb.y));
     assert(!p->f32_write(buf, vb.width));
@@ -2134,18 +2128,18 @@ int musvg_write_binary_viewbox(musvg_parser *p, mu_buf *buf, musvg_node *node, m
     return 0;
 }
 
-int musvg_write_binary_aspectratio(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_aspectratio(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_aspectratio ar = *(musvg_aspectratio*)attr_pointer(p, node, attr);
+    const musvg_aspectratio ar = *(musvg_aspectratio*)attr_pointer(p, node_idx, attr);
     assert(mu_buf_write_i8(buf, ar.alignX));
     assert(mu_buf_write_i8(buf, ar.alignY));
     assert(mu_buf_write_i8(buf, ar.alignType));
     return 0;
 }
 
-int musvg_write_binary_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_path_d ops = *(musvg_path_d*)attr_pointer(p, node, attr);
+    musvg_path_d ops = *(musvg_path_d*)attr_pointer(p, node_idx, attr);
     ullong count = ops.op_count;
     assert(!mu_leb_u64_write(buf, &count));
     for (musvg_index j = 0; j < ops.op_count; j++) {
@@ -2161,9 +2155,9 @@ int musvg_write_binary_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musv
     return 0;
 }
 
-int musvg_write_binary_points(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_binary_points(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_points points = *(musvg_points*)attr_pointer(p, node, attr);
+    musvg_points points = *(musvg_points*)attr_pointer(p, node_idx, attr);
     const float *v = points_get(p, points.point_offset);
     ullong count = points.point_count;
     assert(!mu_leb_u64_write(buf, &count));
@@ -2173,117 +2167,117 @@ int musvg_write_binary_points(musvg_parser *p, mu_buf *buf, musvg_node *node, mu
 
 // attribute parsers
 
-int musvg_read_text_enum(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_enum(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_small val = parse_enum(attr, s);
-    musvg_small *ptr = (musvg_small*)attr_pointer(p, node, attr);
+    musvg_small *ptr = (musvg_small*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_id(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_id(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_id val = musvg_parse_id(p, s);
-    musvg_id *ptr = (musvg_id*)attr_pointer(p, node, attr);
+    musvg_id *ptr = (musvg_id*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_length(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_length(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_length val = musvg_parse_length(s);
-    musvg_length *ptr = (musvg_length*)attr_pointer(p, node, attr);
+    musvg_length *ptr = (musvg_length*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_color(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_color(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_color val = musvg_parse_color(p, s);
-    musvg_color *ptr = (musvg_color*)attr_pointer(p, node, attr);
+    musvg_color *ptr = (musvg_color*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_transform(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_transform(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_transform val = musvg_parse_transform(s);
-    musvg_transform *ptr = (musvg_transform*)attr_pointer(p, node, attr);
+    musvg_transform *ptr = (musvg_transform*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_dasharray(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_dasharray(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_dasharray val = musvg_parse_stroke_dasharray(s);
-    musvg_dasharray *ptr = (musvg_dasharray*)attr_pointer(p, node, attr);
+    musvg_dasharray *ptr = (musvg_dasharray*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_float(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_float(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     float val = (float)musvg_atof(s);
-    float *ptr = (float*)attr_pointer(p, node, attr);
+    float *ptr = (float*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_viewbox(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_viewbox(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_viewbox val = musvg_parse_viewbox(s);
-    musvg_viewbox *ptr = (musvg_viewbox*)attr_pointer(p, node, attr);
+    musvg_viewbox *ptr = (musvg_viewbox*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_aspectratio(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_aspectratio(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_aspectratio val = musvg_parse_aspectratio(s);
-    musvg_aspectratio *ptr = (musvg_aspectratio*)attr_pointer(p, node, attr);
+    musvg_aspectratio *ptr = (musvg_aspectratio*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_path(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_path(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_path_d val = musvg_parse_path_ops(p, s);
-    musvg_path_d *ptr = (musvg_path_d*)attr_pointer(p, node, attr);
+    musvg_path_d *ptr = (musvg_path_d*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
-int musvg_read_text_points(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr)
+int musvg_read_text_points(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr)
 {
     musvg_points val = musvg_parse_points(p, s);
-    musvg_points *ptr = (musvg_points*)attr_pointer(p, node, attr);
+    musvg_points *ptr = (musvg_points*)attr_pointer(p, node_idx, attr);
     *ptr = val;
     return 0;
 }
 
 // text writers
 
-int musvg_write_text_enum(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_enum(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_small enum_value = *attr_pointer(p, node, attr) % enum_modulus(attr);
+    const musvg_small enum_value = *attr_pointer(p, node_idx, attr) % enum_modulus(attr);
     const char *enum_name = musvg_type_info_enum[attr].names[enum_value];
     size_t enum_len = strlen(enum_name);
     assert(mu_buf_write_bytes(buf, enum_name, enum_len) == enum_len);
     return 0;
 }
 
-int musvg_write_text_id(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_id(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_id id = *(musvg_id*)attr_pointer(p, node, attr);
+    const musvg_id id = *(musvg_id*)attr_pointer(p, node_idx, attr);
     const char* id_str = fetch_string(p, id.name);
     const ullong id_len = strlen(id_str);
     assert(mu_buf_write_bytes(buf, id_str, id_len) == id_len);
     return 0;
 }
 
-int musvg_write_text_length(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_length(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_length length = *(musvg_length*)attr_pointer(p, node, attr);
+    const musvg_length length = *(musvg_length*)attr_pointer(p, node_idx, attr);
     char str[64];
     int len = snprintf(str, sizeof(str), "%.8g", length.value);
     if (length.units != musvg_unit_default) {
@@ -2294,10 +2288,10 @@ int musvg_write_text_length(musvg_parser *p, mu_buf *buf, musvg_node *node, musv
     return 0;
 }
 
-int musvg_write_text_color(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_color(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
     char str[128];
-    const musvg_color color = *(musvg_color*)attr_pointer(p, node, attr);
+    const musvg_color color = *(musvg_color*)attr_pointer(p, node_idx, attr);
     if (color.type == musvg_color_type_url) {
         const char* url_str = fetch_string(p, color.data);
         int len = snprintf(str, sizeof(str), "url(#%s)", url_str);
@@ -2311,54 +2305,54 @@ int musvg_write_text_color(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg
     return 0;
 }
 
-int musvg_write_text_transform(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_transform(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_transform xf = *(musvg_transform*)attr_pointer(p, node, attr);
+    const musvg_transform xf = *(musvg_transform*)attr_pointer(p, node_idx, attr);
     char str[128];
     int len = musvg_transform_string(str, sizeof(str), &xf);
     assert(mu_buf_write_bytes(buf, str, len) == len);
     return 0;
 }
 
-int musvg_write_text_dasharray(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_dasharray(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_dasharray da = *(musvg_dasharray*)attr_pointer(p, node, attr);
+    const musvg_dasharray da = *(musvg_dasharray*)attr_pointer(p, node_idx, attr);
     char str[128];
     int len = musvg_dasharray_string(str, sizeof(str), &da);
     assert(mu_buf_write_bytes(buf, str, len) == len);
     return 0;
 }
 
-int musvg_write_text_float(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_float(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const float value = *(float*)attr_pointer(p, node, attr);
+    const float value = *(float*)attr_pointer(p, node_idx, attr);
     char str[128];
     int len = snprintf(str, sizeof(str), "%.8f", value);
     assert(mu_buf_write_bytes(buf, str, len) == len);
     return 0;
 }
 
-int musvg_write_text_viewbox(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_viewbox(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_viewbox vb = *(musvg_viewbox*)attr_pointer(p, node, attr);
+    const musvg_viewbox vb = *(musvg_viewbox*)attr_pointer(p, node_idx, attr);
     char str[128];
     int len = musvg_viewbox_string(str, sizeof(str), &vb);
     assert(mu_buf_write_bytes(buf, str, len) == len);
     return 0;
 }
 
-int musvg_write_text_aspectratio(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_aspectratio(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    const musvg_aspectratio ar = *(musvg_aspectratio*)attr_pointer(p, node, attr);
+    const musvg_aspectratio ar = *(musvg_aspectratio*)attr_pointer(p, node_idx, attr);
     char str[128];
     int len = musvg_aspectratio_string(str, sizeof(str), &ar);
     assert(mu_buf_write_bytes(buf, str, len) == len);
     return 0;
 }
 
-int musvg_write_text_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_path_d ops = *(musvg_path_d*)attr_pointer(p, node, attr);
+    musvg_path_d ops = *(musvg_path_d*)attr_pointer(p, node_idx, attr);
     char last_code = 0;
     for (musvg_index j = 0; j < ops.op_count; j++) {
         char str[128];
@@ -2377,9 +2371,9 @@ int musvg_write_text_path(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_
     return 0;
 }
 
-int musvg_write_text_points(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr)
+int musvg_write_text_points(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
-    musvg_points points = *(musvg_points*)attr_pointer(p, node, attr);
+    musvg_points points = *(musvg_points*)attr_pointer(p, node_idx, attr);
     const float *v = points_get(p, points.point_offset);
     for (musvg_index j = 0; j < points.point_count; j++) {
         char str[128];
@@ -2392,7 +2386,7 @@ int musvg_write_text_points(musvg_parser *p, mu_buf *buf, musvg_node *node, musv
 
 // type metadata
 
-typedef int (*musvg_attr_str_fn)(musvg_parser *p, const char *s, musvg_node *node, musvg_attr attr);
+typedef int (*musvg_attr_str_fn)(musvg_parser *p, const char *s, musvg_index node_idx, musvg_attr attr);
 
 static const musvg_attr_str_fn musvg_text_parsers[] = {
     [musvg_type_enum]        = &musvg_read_text_enum,
@@ -2408,7 +2402,7 @@ static const musvg_attr_str_fn musvg_text_parsers[] = {
     [musvg_type_points]      = &musvg_read_text_points,
 };
 
-typedef int (*musvg_attr_buf_fn)(musvg_parser *p, mu_buf *buf, musvg_node *node, musvg_attr attr);
+typedef int (*musvg_attr_buf_fn)(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr);
 
 static const musvg_attr_buf_fn musvg_binary_parsers[] = {
     [musvg_type_enum]        = &musvg_read_binary_enum,
@@ -2454,27 +2448,27 @@ static const musvg_attr_buf_fn musvg_text_emitters[] = {
 
 // SVG attribute parsing
 
-static void musvg_parse_style(musvg_parser* p, musvg_node* node, const char* str);
+static void musvg_parse_style(musvg_parser* p, musvg_index node_idx, const char* str);
 
-static int musvg_parse_attr(musvg_parser* p, musvg_node* node,
+static int musvg_parse_attr(musvg_parser* p, musvg_index node_idx,
     const char* name, const char* value)
 {
     if (strcmp(name, "style") == 0) {
-        musvg_parse_style(p, node, value);
+        musvg_parse_style(p, node_idx, value);
     } else {
         for (size_t attr = 0; attr < array_size(musvg_attribute_names); attr++) {
             const char *attr_name = musvg_attribute_names[attr];
             if (attr_name && strcmp(name, attr_name) == 0) {
                 musvg_attr_str_fn fn = musvg_text_parsers[musvg_attr_types[attr]];
                 debugf("musvg_parse_attr: %s := %s\n", name, value);
-                return fn(p, value, node, as_attr(attr));
+                return fn(p, value, node_idx, as_attr(attr));
             }
         }
     }
     return 1;
 }
 
-static int musvg_parse_name_value(musvg_parser* p, musvg_node* node,
+static int musvg_parse_name_value(musvg_parser* p, musvg_index node_idx,
     const char* start, const char* end)
 {
     const char* str;
@@ -2504,10 +2498,10 @@ static int musvg_parse_name_value(musvg_parser* p, musvg_node* node,
     if (n) memcpy(value, val, n);
     value[n] = 0;
 
-    return musvg_parse_attr(p, node, name, value);
+    return musvg_parse_attr(p, node_idx, name, value);
 }
 
-static void musvg_parse_style(musvg_parser* p, musvg_node* node, const char* str)
+static void musvg_parse_style(musvg_parser* p, musvg_index node_idx, const char* str)
 {
     const char *start, *end;
 
@@ -2525,49 +2519,51 @@ static void musvg_parse_style(musvg_parser* p, musvg_node* node, const char* str
         while (end > start &&  (*end == ';' || musvg_isspace(*end))) --end;
         ++end;
 
-        musvg_parse_name_value(p, node, start, end);
+        musvg_parse_name_value(p, node_idx, start, end);
         if (*str) ++str;
     }
 }
 
 // SVG emitters
 
-void musvg_emit_text_begin(musvg_parser *p, void *userdata, musvg_node *node, uint depth, uint close)
+void musvg_emit_text_begin(musvg_parser *p, void *userdata, musvg_index node_idx, uint depth, uint close)
 {
     mu_buf *buf = (mu_buf *)userdata;
+    musvg_node *node = nodes_get(p, node_idx);
     for (int d = 0; d < depth; d++) mu_buf_write_string(buf, "\t");
     mu_buf_write_format(buf, "node %s {\n",
         musvg_element_names[node->type]);
     musvg_index slots[64];
     size_t sz = array_size(slots);
-    musvg_node_attr_slots(p, node, slots, &sz);
+    musvg_node_attr_slots(p, node_idx, slots, &sz);
     for (size_t i = 0; i < sz; i++) {
         musvg_slot *slot = slots_get(p, slots[i]);
         musvg_attr attr = slot->type;
         musvg_attr_buf_fn fn = musvg_text_emitters[musvg_attr_types[attr]];
         for (int d = 0; d < depth + 1; d++) mu_buf_write_string(buf, "\t");
         mu_buf_write_format(buf, "attr %s \"", musvg_attribute_names[attr]);
-        fn(p, buf, node, attr);
+        fn(p, buf, node_idx, attr);
         mu_buf_write_string(buf, "\";\n");
     }
 }
 
-void musvg_emit_text_end(musvg_parser *p, void *userdata, musvg_node *node, uint depth, uint close)
+void musvg_emit_text_end(musvg_parser *p, void *userdata, musvg_index node_idx, uint depth, uint close)
 {
     mu_buf *buf = (mu_buf *)userdata;
     for (int d = 0; d < depth; d++) mu_buf_write_string(buf, "\t");
     mu_buf_write_string(buf, "};\n");
 }
 
-void musvg_emit_xml_begin(musvg_parser *p, void *userdata, musvg_node *node, uint depth, uint close)
+void musvg_emit_xml_begin(musvg_parser *p, void *userdata, musvg_index node_idx, uint depth, uint close)
 {
     mu_buf *buf = (mu_buf *)userdata;
+    musvg_node *node = nodes_get(p, node_idx);
     for (int d = 0; d < depth; d++) mu_buf_write_string(buf, "\t");
     mu_buf_write_i8(buf, '<');
     mu_buf_write_string(buf, musvg_element_names[node->type]);
     musvg_index slots[64];
     size_t sz = array_size(slots);
-    musvg_node_attr_slots(p, node, slots, &sz);
+    musvg_node_attr_slots(p, node_idx, slots, &sz);
     for (size_t i = 0; i < sz; i++) {
         musvg_slot *slot = slots_get(p, slots[i]);
         musvg_attr attr = slot->type;
@@ -2575,71 +2571,73 @@ void musvg_emit_xml_begin(musvg_parser *p, void *userdata, musvg_node *node, uin
         mu_buf_write_i8(buf, ' ');
         mu_buf_write_string(buf, musvg_attribute_names[attr]);
         mu_buf_write_string(buf, "=\"");
-        fn(p, buf, node, attr);
+        fn(p, buf, node_idx, attr);
         mu_buf_write_i8(buf, '"');
     }
     if (close) mu_buf_write_i8(buf, '/');
     mu_buf_write_string(buf, ">\n\0");
 }
 
-void musvg_emit_xml_end(musvg_parser *p, void *userdata, musvg_node *node, uint depth, uint close)
+void musvg_emit_xml_end(musvg_parser *p, void *userdata, musvg_index node_idx, uint depth, uint close)
 {
     mu_buf *buf = (mu_buf *)userdata;
+    musvg_node *node = nodes_get(p, node_idx);
     if (close) return;
     for (int d = 0; d < depth; d++) mu_buf_write_string(buf, "\t");
     mu_buf_write_format(buf, "</%s>\n", musvg_element_names[node->type]);
 }
 
-void musvg_emit_binary_begin(musvg_parser *p, void *userdata, musvg_node *node, uint depth, uint close)
+void musvg_emit_binary_begin(musvg_parser *p, void *userdata, musvg_index node_idx, uint depth, uint close)
 {
     mu_buf *buf = (mu_buf *)userdata;
+    musvg_node *node = nodes_get(p, node_idx);
     mu_buf_write_i8(buf, (char)node->type);
 
     musvg_index slots[64];
     size_t sz = array_size(slots);
-    musvg_node_attr_slots(p, node, slots, &sz);
+    musvg_node_attr_slots(p, node_idx, slots, &sz);
     for (size_t i = 0; i < sz; i++) {
         musvg_slot *slot = slots_get(p, slots[i]);
         musvg_attr attr = slot->type;
         musvg_attr_buf_fn fn = musvg_binary_emitters[musvg_attr_types[attr]];
         mu_buf_write_i8(buf, attr);
-        fn(p, buf, node, attr);
+        fn(p, buf, node_idx, attr);
     }
     mu_buf_write_i8(buf, musvg_attr_none);
 }
 
-void musvg_emit_binary_end(musvg_parser *p, void *userdata, musvg_node *node, uint depth, uint close)
+void musvg_emit_binary_end(musvg_parser *p, void *userdata, musvg_index node_idx, uint depth, uint close)
 {
     mu_buf *buf = (mu_buf *)userdata;
     mu_buf_write_i8(buf, musvg_element_none);
 }
 
-void musvg_visit_recurse(musvg_parser* p, void *userdata, musvg_node *up, uint d,
+void musvg_visit_recurse(musvg_parser* p, void *userdata, musvg_index node_idx, uint d,
     musvg_node_visit_fn begin_fn, musvg_node_visit_fn end_fn)
 {
-    musvg_node *node = NULL, *down = NULL, *adjacent = up;
+    musvg_index current_idx, down_idx, adjacent_idx = node_idx;
     llong count = 0, i = 0;
     do {
-        node = adjacent;
+        current_idx = adjacent_idx;
         count++;
-        adjacent = node + node->left;
-    } while (adjacent != node);
-    musvg_node * nodes[count];
-    adjacent = up;
+        adjacent_idx = current_idx + nodes_get(p, current_idx)->left;
+    } while (adjacent_idx != current_idx);
+    musvg_index node_indices[count];
+    adjacent_idx = node_idx;
     do {
-        node = adjacent;
-        nodes[i++] = node;
-        adjacent = node + node->left;
-    } while (adjacent != node);
+        current_idx = adjacent_idx;
+        node_indices[i++] = current_idx;
+        adjacent_idx = current_idx + nodes_get(p, current_idx)->left;
+    } while (adjacent_idx != current_idx);
     while (i-- > 0) {
-        node = nodes[i];
-        down = node + node->down;
-        int has_depth = down != node;
-        if (begin_fn) begin_fn(p, userdata, node, d, !has_depth);
+        current_idx = node_indices[i];
+        down_idx = current_idx + nodes_get(p, current_idx)->down;
+        int has_depth = down_idx != current_idx;
+        if (begin_fn) begin_fn(p, userdata, current_idx, d, !has_depth);
         if (has_depth) {
-            musvg_visit_recurse(p, userdata, down, d + 1, begin_fn, end_fn);
+            musvg_visit_recurse(p, userdata, down_idx, d + 1, begin_fn, end_fn);
         }
-        if (end_fn) end_fn(p, userdata, node, d, !has_depth);
+        if (end_fn) end_fn(p, userdata, current_idx, d, !has_depth);
     }
 }
 
@@ -2649,8 +2647,7 @@ void musvg_visit(musvg_parser* p, void *userdata, musvg_node_visit_fn begin_fn, 
      * currently we construct the entire output in memory, however, it will be
      * possible to use the buffer size check callback to incrementally flush.
      */
-    musvg_node *begin = nodes_get(p, 0);
-    musvg_visit_recurse(p, userdata, begin, 0, begin_fn, end_fn);
+    musvg_visit_recurse(p, userdata, 0, 0, begin_fn, end_fn);
 }
 
 void musvg_emit_text(musvg_parser* p, mu_buf *buf)
@@ -2720,10 +2717,10 @@ static void musvg_start_element(void* ud, const char* el, const char** a)
     for (size_t i = 0; i < array_size(musvg_element_names); i++) {
         const char *name = musvg_element_names[i];
         if (name && strcmp(el, name) == 0) {
-            musvg_node *node = musvg_node_add(p, i);
+            musvg_index node_idx = musvg_node_add(p, i);
             for (uint i = 0; a[i]; i += 2)
             {
-                if (!musvg_parse_attr(p, node, a[i], a[i + 1]))
+                if (!musvg_parse_attr(p, node_idx, a[i], a[i + 1]))
                 {
                     // todo
                 }
@@ -2782,7 +2779,7 @@ int musvg_parse_binary(musvg_parser *p, mu_buf *buf)
             continue;
         }
 
-        musvg_node *node = musvg_node_add(p, element);
+        musvg_index node_idx = musvg_node_add(p, element);
 
         for (;;) {
             if (!mu_buf_read_i8(buf, &attr)) return -1;
@@ -2790,7 +2787,7 @@ int musvg_parse_binary(musvg_parser *p, mu_buf *buf)
             if (attr == musvg_attr_none) break;
 
             musvg_attr_buf_fn read_fn = musvg_binary_parsers[musvg_attr_types[attr]];
-            int ret = read_fn(p, buf, node, as_attr(attr));
+            int ret = read_fn(p, buf, node_idx, as_attr(attr));
         }
     }
 
@@ -2870,9 +2867,9 @@ musvg_parser* musvg_parser_create()
     storage_alloc(p,1,1);
     strings_alloc(p,1,1);
 
-    assert(p->slots.count == 1);
-    assert(p->storage.offset == 1);
-    assert(p->strings.offset == 1);
+    assert(slots_count(p) == 1);
+    assert(storage_size(p) == 1);
+    assert(strings_size(p) == 1);
 
     return p;
 }
@@ -2959,9 +2956,9 @@ void musvg_parser_dump(musvg_parser* p)
     printf("%7s%7s%5s%7s%7s%7s%5s%7s%7s%5s %s\n",
         "------", "------", "----", "------", "------", "------", "----", "------", "------", "----",
         "------------------------------------");
-    for (musvg_index node_idx = 0; node_idx < p->nodes.count; node_idx++) {
+    for (musvg_index node_idx = 0; node_idx < nodes_count(p); node_idx++) {
         musvg_node *node = nodes_get(p, node_idx);
-        musvg_index parent_idx = musvg_node_parent(p, node);
+        musvg_index parent_idx = musvg_node_parent(p, node_idx);
         printf("%7" _PRIDX "%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%7" _PRIDX "%7" _PRIDX "%7s%5s%7s%5s <%s>\n",
             node_idx, parent_idx, node->type, node->left, node->down, node->attr, "", "", "", "",
             musvg_element_names[node->type]);
@@ -2975,7 +2972,7 @@ void musvg_parser_dump(musvg_parser* p)
             size_t type_size = musvg_type_storage[type].size;
             musvg_attr_buf_fn fn = musvg_text_emitters[type];
             mu_buf *buf = mu_resizable_buf_new();
-            fn(p, buf, node, as_attr(attr));
+            fn(p, buf, node_idx, as_attr(attr));
             if (buf->write_marker > 21) {
                 buf->data[19] = '.';
                 buf->data[20] = '.';
@@ -3047,9 +3044,10 @@ musvg_span musvg_read_fd(int fd)
     return span;
 }
 
-int musvg_node_attr_types(musvg_parser *p, musvg_node *node, musvg_attr *types, size_t *count)
+int musvg_node_attr_types(musvg_parser *p, musvg_index node_idx, musvg_attr *types, size_t *count)
 {
     size_t input_count = *count, i = 0, j = 0;
+    musvg_node *node = nodes_get(p, node_idx);
 
     musvg_index slot_idx = 0, next_idx = node->attr;
     while (slot_idx != next_idx) {
@@ -3076,11 +3074,11 @@ int musvg_node_attr_types(musvg_parser *p, musvg_node *node, musvg_attr *types, 
     return 0;
 }
 
-int musvg_node_attr_slots(musvg_parser *p, musvg_node *node, musvg_index *slots, size_t *count)
+int musvg_node_attr_slots(musvg_parser *p, musvg_index node_idx, musvg_index *slots, size_t *count)
 {
     size_t input_count = *count, i = 0, j = 0;
 
-    musvg_index slot_idx = 0, next_idx = node->attr;
+    musvg_index slot_idx = 0, next_idx = nodes_get(p, node_idx)->attr;
     while (slot_idx != next_idx) {
         slot_idx = next_idx;
         musvg_slot *slot = slots_get(p, slot_idx);
@@ -3089,7 +3087,7 @@ int musvg_node_attr_slots(musvg_parser *p, musvg_node *node, musvg_index *slots,
     }
 
     if (slots) {
-        musvg_index slot_idx = 0, next_idx = node->attr;
+        musvg_index slot_idx = 0, next_idx = nodes_get(p, node_idx)->attr;
         while (slot_idx != next_idx) {
             slot_idx = next_idx;
             musvg_slot *slot = slots_get(p, slot_idx);
@@ -3105,9 +3103,9 @@ int musvg_node_attr_slots(musvg_parser *p, musvg_node *node, musvg_index *slots,
     return 0;
 }
 
-int musvg_attr_value_set_value(musvg_parser *p, musvg_node *node, musvg_attr attr, const char *value, size_t len)
+int musvg_attr_value_set_value(musvg_parser *p, musvg_index node_idx, musvg_attr attr, const char *value, size_t len)
 {
-    musvg_index storage = find_attr(p, node, attr);
+    musvg_index storage = find_attr(p, node_idx, attr);
     if (storage == 0) {
         /* node attribute offset entries must all be adjacent so if the last
          * entry on the node is not the last entry in the array then we need
@@ -3115,15 +3113,15 @@ int musvg_attr_value_set_value(musvg_parser *p, musvg_node *node, musvg_attr att
         return -1;
     }
     musvg_attr_str_fn fn = musvg_text_parsers[musvg_attr_types[attr]];
-    int ret = fn(p, value, node, attr);
+    int ret = fn(p, value, node_idx, attr);
     return 0;
 }
 
-int musvg_attr_value_get(musvg_parser *p, musvg_node *node, musvg_attr attr, char *value, size_t *len)
+int musvg_attr_value_get(musvg_parser *p, musvg_index node_idx, musvg_attr attr, char *value, size_t *len)
 {
     mu_buf *buf = mu_resizable_buf_new();
     musvg_attr_buf_fn fn = musvg_text_emitters[musvg_attr_types[attr]];
-    fn(p, buf, node, attr);
+    fn(p, buf, node_idx, attr);
     mu_buf_write_i8(buf, 0);
     size_t input_len = *len;
     size_t output_len = input_len - 1 < buf->write_marker ? input_len - 1 : buf->write_marker;
