@@ -34,6 +34,7 @@ extern "C" {
 // SVG forward decls
 
 typedef unsigned uint;
+typedef unsigned short ushort;
 typedef long long llong;
 typedef unsigned long long ullong;
 typedef signed char musvg_small;
@@ -303,6 +304,8 @@ enum musvg_transform_t {
 };
 
 // SVG primitives
+
+typedef struct { ushort d[3]; } mnu_int48;
 
 struct musvg_span
 {
