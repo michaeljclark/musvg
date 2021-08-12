@@ -1822,16 +1822,16 @@ static musvg_index musvg_node_add(musvg_parser *p, musvg_element type)
     uint depth = p->node_depth++;
     if (depth == musvg_max_depth) abort();
 
-    musvg_index adjacent_idx = p->node_stack[depth];
-    musvg_index current_idx = p->node_stack[depth] = nodes_count(p) - 1;
+    musvg_index left_idx = p->node_stack[depth];
+    musvg_index node_idx = p->node_stack[depth] = nodes_count(p) - 1;
     musvg_index parent_idx = depth > 0 ? p->node_stack[depth-1] : 0;
 
-    node_set_type(p, current_idx, type);
-    node_set_left(p, current_idx, adjacent_idx);
-    node_set_down(p, current_idx, 0);
-    node_set_up  (p, current_idx, parent_idx);
-    node_set_attr(p, current_idx, 0);
-    node_set_down(p, parent_idx, current_idx);
+    node_set_type(p, node_idx, type);
+    node_set_left(p, node_idx, left_idx);
+    node_set_down(p, node_idx, 0);
+    node_set_up  (p, node_idx, parent_idx);
+    node_set_attr(p, node_idx, 0);
+    node_set_down(p, parent_idx, node_idx);
 
     return (musvg_index)(node - nodes_get(p, 0));
 }
@@ -2626,29 +2626,26 @@ void musvg_emit_binary_end(musvg_parser *p, void *userdata, musvg_index node_idx
 void musvg_visit_recurse(musvg_parser* p, void *userdata, musvg_index node_idx, uint d,
     musvg_node_visit_fn begin_fn, musvg_node_visit_fn end_fn)
 {
-    musvg_index current_idx, down_idx, adjacent_idx = node_idx;
+    musvg_index down_idx, left_idx = node_idx;
     llong count = 0, i = 0;
     do {
-        current_idx = adjacent_idx;
         count++;
-        adjacent_idx = node_left(p, current_idx);
-    } while (adjacent_idx);
+        left_idx = node_left(p, left_idx);
+    } while (left_idx);
     musvg_index node_indices[count];
-    adjacent_idx = node_idx;
+    left_idx = node_idx;
     do {
-        current_idx = adjacent_idx;
-        node_indices[i++] = current_idx;
-        adjacent_idx = node_left(p, current_idx);
-    } while (adjacent_idx);
+        left_idx = node_left(p, (node_indices[i++] = left_idx));
+    } while (left_idx);
     while (i-- > 0) {
-        current_idx = node_indices[i];
-        down_idx = node_down(p, current_idx);
+        left_idx = node_indices[i];
+        down_idx = node_down(p, left_idx);
         int has_depth = !!down_idx;
-        if (begin_fn) begin_fn(p, userdata, current_idx, d, !has_depth);
+        if (begin_fn) begin_fn(p, userdata, left_idx, d, !has_depth);
         if (has_depth) {
             musvg_visit_recurse(p, userdata, down_idx, d + 1, begin_fn, end_fn);
         }
-        if (end_fn) end_fn(p, userdata, current_idx, d, !has_depth);
+        if (end_fn) end_fn(p, userdata, left_idx, d, !has_depth);
     }
 }
 
