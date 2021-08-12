@@ -1875,9 +1875,7 @@ static musvg_index find_attr_parent(musvg_parser *p, musvg_index node_idx, musvg
     /* find node attribute, if not found retry with parent */
     musvg_index storage;
     while ((storage = find_attr(p, node_idx, attr)) == 0) {
-        musvg_index parent_idx = node_up(p, node_idx);
-        if (parent_idx == 0) break;
-        node_idx = parent_idx;
+        if ((node_idx = node_up(p, node_idx)) == 0) break;
     }
     return storage;
 }
