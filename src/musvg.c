@@ -278,7 +278,6 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 static inline musvg_attr as_attr(int i) { return (musvg_attr)i; }
 
 enum { musvg_max_depth = 256 };
-enum { musvg_node_sentinel = -1 };
 
 // SVG parser
 
@@ -288,16 +287,17 @@ typedef struct musvg_node musvg_node;
 struct musvg_slot
 {
     uint type;                 /* attribute type */
-    mnu_int48 storage;         /* absolute index to storage */
-    mnu_int48 left;            /* relative index to sibling attribute */
+    mnu_int48 storage;         /* index to storage space */
+    mnu_int48 left;            /* index to sibling attribute */
 };
 
 struct musvg_node
 {
-    ushort type;               /* element type */
-    mnu_int48 left;            /* relative index to sibling node */
-    mnu_int48 down;            /* relative index to child node */
-    mnu_int48 attr;            /* absolute index to slot */
+    uint type;                 /* element type */
+    mnu_int48 left;            /* index to sibling node */
+    mnu_int48 down;            /* index to child node */
+    mnu_int48 attr;            /* index to attribute slot */
+    mnu_int48 up;              /* index to parent node */
 };
 
 struct musvg_parser
@@ -1780,9 +1780,19 @@ static musvg_index node_down(musvg_parser *p, musvg_index idx)
     return mnu_int48_get(nodes_get(p, idx)->down);
 }
 
+static musvg_index node_up(musvg_parser *p, musvg_index idx)
+{
+    return mnu_int48_get(nodes_get(p, idx)->up);
+}
+
 static musvg_index node_attr(musvg_parser *p, musvg_index idx)
 {
     return mnu_int48_get(nodes_get(p, idx)->attr);
+}
+
+static void node_set_type(musvg_parser *p, musvg_index idx, musvg_element type)
+{
+    nodes_get(p, idx)->type = type;
 }
 
 static void node_set_left(musvg_parser *p, musvg_index idx, musvg_index left)
@@ -1795,6 +1805,11 @@ static void node_set_down(musvg_parser *p, musvg_index idx, musvg_index down)
     nodes_get(p, idx)->down = mnu_int48_set(down);
 }
 
+static void node_set_up(musvg_parser *p, musvg_index idx, musvg_index up)
+{
+    nodes_get(p, idx)->up = mnu_int48_set(up);
+}
+
 static void node_set_attr(musvg_parser *p, musvg_index idx, musvg_index attr)
 {
     nodes_get(p, idx)->attr = mnu_int48_set(attr);
@@ -1804,13 +1819,6 @@ static musvg_index musvg_node_add(musvg_parser *p, musvg_element type)
 {
     musvg_node *node = nodes_alloc(p, 1);
 
-    mnu_int48 z = { 0 };
-
-    node->type = type;
-    node->left = z;
-    node->down = z;
-    node->attr = z;
-
     uint depth = p->node_depth++;
     if (depth == musvg_max_depth) abort();
 
@@ -1818,15 +1826,12 @@ static musvg_index musvg_node_add(musvg_parser *p, musvg_element type)
     musvg_index current_idx = p->node_stack[depth] = nodes_count(p) - 1;
     musvg_index parent_idx = depth > 0 ? p->node_stack[depth-1] : 0;
 
-    /* point parent node to the new child node */
-    node_set_down(p, parent_idx, current_idx - parent_idx);
-
-    /* point new child node to prior sibling node */
-    if (adjacent_idx == (musvg_index)musvg_node_sentinel) {
-        node_set_left(p, current_idx, 0);
-    } else {
-        node_set_left(p, current_idx, adjacent_idx - current_idx);
-    }
+    node_set_type(p, current_idx, type);
+    node_set_left(p, current_idx, adjacent_idx);
+    node_set_down(p, current_idx, 0);
+    node_set_up  (p, current_idx, parent_idx);
+    node_set_attr(p, current_idx, 0);
+    node_set_down(p, parent_idx, current_idx);
 
     return (musvg_index)(node - nodes_get(p, 0));
 }
@@ -1835,49 +1840,7 @@ static void musvg_stack_pop(musvg_parser *p)
 {
     if (p->node_depth == 0) abort();
     uint depth = p->node_depth--;
-    p->node_stack[depth] = (musvg_index)musvg_node_sentinel;
-}
-
-static musvg_index musvg_node_parent(musvg_parser *p, musvg_index node_idx)
-{
-    /*
-     * find parent node
-     *
-     * parent down links to the last sibling so we scan forwards to find
-     * the last sibling then backwards to find a down link pointing to it.
-     *
-     * this current algorithm is brute-force. we should limit forward
-     * scanning to nodes that we know are at or below our depth and we
-     * can scan over child nodes, although we can't depend on pre-order.
-     *
-     * perhaps create an auxiliary parent index.
-     */
-
-    ullong i = node_idx, last_idx = node_idx;
-
-    /* scan forwards to find last sibling */
-    while (++i < nodes_count(p)) {
-        musvg_index left_idx = i + node_left(p,i);
-
-        if (left_idx == i) {                      /* skip terminators */
-
-        } else if (left_idx == last_idx) {        /* track earliest sibling. */
-            last_idx = i;
-        }
-    }
-
-    /* scan backwards to find parent */
-    while (i-- > 0) {
-        musvg_index down_idx = i + node_down(p,i);
-
-        if (down_idx == i) {                      /* skip terminators */
-
-        } else if (down_idx == last_idx) {        /* found parent. */
-            return i;
-        }
-    }
-
-    return musvg_node_sentinel;
+    p->node_stack[depth] = 0;
 }
 
 // SVG attribute storage
@@ -1896,18 +1859,12 @@ static inline char* fetch_string(musvg_parser *p, musvg_index storage)
     return (char*)strings_get(p, storage);
 }
 
-static inline musvg_slot * find_slot(musvg_parser *p, const musvg_index node_idx, musvg_attr attr)
-{
-    return NULL;
-}
-
 static inline musvg_index find_attr(musvg_parser *p, const musvg_index node_idx, musvg_attr attr)
 {
-    musvg_index slot_idx = 0, next_idx = node_attr(p, node_idx);
-    while (slot_idx != next_idx) {
-        slot_idx = next_idx;
+    musvg_index slot_idx = node_attr(p, node_idx);
+    while (slot_idx) {
         if (slot_type(p, slot_idx) == attr) return slot_storage(p, slot_idx);
-        next_idx = slot_idx + slot_left(p, slot_idx);
+        slot_idx = slot_left(p, slot_idx);
     }
     /* zero offset is reserved and means not found */
     return 0;
@@ -1918,8 +1875,8 @@ static musvg_index find_attr_parent(musvg_parser *p, musvg_index node_idx, musvg
     /* find node attribute, if not found retry with parent */
     musvg_index storage;
     while ((storage = find_attr(p, node_idx, attr)) == 0) {
-        musvg_index parent_idx = musvg_node_parent(p, node_idx);
-        if (parent_idx == (musvg_index)musvg_node_sentinel) break;
+        musvg_index parent_idx = node_up(p, node_idx);
+        if (parent_idx == 0) break;
         node_idx = parent_idx;
     }
     return storage;
@@ -1932,11 +1889,8 @@ static inline musvg_index alloc_attr(musvg_parser *p, musvg_index node_idx, musv
     size_t size = musvg_type_storage[type].size;
     size_t align = musvg_type_storage[type].align;
     musvg_index slot_idx = node_attr(p, node_idx);
-    musvg_index last_idx = slot_idx ? slot_idx - slots_count(p) : 0;
-    musvg_slot o = { attr };
     musvg_index storage = storage_alloc(p, size, align);
-    o.storage = mnu_int48_set(storage);
-    o.left = mnu_int48_set(last_idx);
+    musvg_slot o = { attr, mnu_int48_set(storage), mnu_int48_set(slot_idx) };
     node_set_attr(p, node_idx, slots_add(p,&o));
     return storage;
 }
@@ -2677,19 +2631,19 @@ void musvg_visit_recurse(musvg_parser* p, void *userdata, musvg_index node_idx, 
     do {
         current_idx = adjacent_idx;
         count++;
-        adjacent_idx = current_idx + node_left(p, current_idx);
-    } while (adjacent_idx != current_idx);
+        adjacent_idx = node_left(p, current_idx);
+    } while (adjacent_idx);
     musvg_index node_indices[count];
     adjacent_idx = node_idx;
     do {
         current_idx = adjacent_idx;
         node_indices[i++] = current_idx;
-        adjacent_idx = current_idx + node_left(p, current_idx);
-    } while (adjacent_idx != current_idx);
+        adjacent_idx = node_left(p, current_idx);
+    } while (adjacent_idx);
     while (i-- > 0) {
         current_idx = node_indices[i];
-        down_idx = current_idx + node_down(p, current_idx);
-        int has_depth = down_idx != current_idx;
+        down_idx = node_down(p, current_idx);
+        int has_depth = !!down_idx;
         if (begin_fn) begin_fn(p, userdata, current_idx, d, !has_depth);
         if (has_depth) {
             musvg_visit_recurse(p, userdata, down_idx, d + 1, begin_fn, end_fn);
@@ -2906,9 +2860,6 @@ musvg_parser* musvg_parser_create()
     musvg_parser* p = (musvg_parser*)malloc(sizeof(musvg_parser));
     memset(p,0,sizeof(musvg_parser));
 
-    for (uint i = 0; i < musvg_max_depth; i++)
-        p->node_stack[i] = (musvg_index)musvg_node_sentinel;
-
     points_init(p);
     path_ops_init(p);
     path_points_init(p);
@@ -3014,14 +2965,12 @@ void musvg_parser_dump(musvg_parser* p)
         "------", "------", "----", "------", "------", "------", "----", "------", "------", "----",
         "------------------------------------");
     for (musvg_index node_idx = 0; node_idx < nodes_count(p); node_idx++) {
-        musvg_index parent_idx = musvg_node_parent(p, node_idx);
         printf("%7" _PRIDX "%7" _PRIDX "%5" _PRTYPE "%7" _PRIDX "%7" _PRIDX "%7" _PRIDX "%7s%5s%7s%5s <%s>\n",
-            node_idx, parent_idx, node_type(p, node_idx), node_left(p, node_idx),
+            node_idx, node_up(p, node_idx), node_type(p, node_idx), node_left(p, node_idx),
             node_down(p, node_idx), node_attr(p, node_idx), "", "", "", "",
             musvg_element_names[node_type(p, node_idx)]);
-        musvg_index slot_idx = 0, next_idx = node_attr(p, node_idx);
-        while (slot_idx != next_idx) {
-            slot_idx = next_idx;
+        musvg_index slot_idx = node_attr(p, node_idx);
+        while (slot_idx) {
             musvg_attr attr = slot_type(p, slot_idx);
             musvg_type_t type = musvg_attr_types[attr];
             const char *type_name = musvg_type_names[type];
@@ -3039,7 +2988,7 @@ void musvg_parser_dump(musvg_parser* p)
                 "", "", "", "", "", slot_idx, attr, slot_left(p, slot_idx), slot_storage(p, slot_idx),
                 type_size, musvg_attribute_names[attr], type_name, buf->data);
             mu_buf_destroy(buf);
-            next_idx = slot_idx + slot_left(p, slot_idx);
+            slot_idx = slot_left(p, slot_idx);
         }
     }
 }
@@ -3104,21 +3053,19 @@ int musvg_node_attr_types(musvg_parser *p, musvg_index node_idx, musvg_attr *typ
 {
     size_t input_count = *count, i = 0, j = 0;
 
-    musvg_index slot_idx = 0, next_idx = node_attr(p, node_idx);
-    while (slot_idx != next_idx) {
-        slot_idx = next_idx;
-        next_idx = slot_idx + slot_left(p, slot_idx);
+    musvg_index slot_idx = node_attr(p, node_idx);
+    while (slot_idx) {
+        slot_idx = slot_left(p, slot_idx);
         i++;
     }
 
     if (types) {
-        musvg_index slot_idx = 0, next_idx = node_attr(p, node_idx);
-        while (slot_idx != next_idx) {
-            slot_idx = next_idx;
+        musvg_index slot_idx = node_attr(p, node_idx);
+        while (slot_idx) {
             if (i-j-1 < input_count) {
                 types[i-j-1] = slot_type(p, slot_idx);
             }
-            next_idx = slot_idx + slot_left(p, slot_idx);
+            slot_idx = slot_left(p, slot_idx);
             j++;
         }
     }
@@ -3131,21 +3078,19 @@ int musvg_node_attr_slots(musvg_parser *p, musvg_index node_idx, musvg_index *sl
 {
     size_t input_count = *count, i = 0, j = 0;
 
-    musvg_index slot_idx = 0, next_idx = node_attr(p, node_idx);
-    while (slot_idx != next_idx) {
-        musvg_slot *slot = slots_get(p, slot_idx);
-        next_idx = slot_idx + slot_left(p, slot_idx);
+    musvg_index slot_idx = node_attr(p, node_idx);
+    while (slot_idx) {
+        slot_idx = slot_left(p, slot_idx);
         i++;
     }
 
     if (slots) {
-        musvg_index slot_idx = 0, next_idx = node_attr(p, node_idx);
-        while (slot_idx != next_idx) {
-            slot_idx = next_idx;
+        musvg_index slot_idx = node_attr(p, node_idx);
+        while (slot_idx) {
             if (i-j-1 < input_count) {
                 slots[i-j-1] = slot_idx;
             }
-            next_idx = slot_idx + slot_left(p, slot_idx);
+            slot_idx = slot_left(p, slot_idx);
             j++;
         }
     }
