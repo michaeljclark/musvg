@@ -50,9 +50,28 @@ include(CheckLibraryExists)
 check_library_exists(m sqrtf "" HAVE_LIB_M)
 list (APPEND EXTRA_LIBS $<$<EQUAL:${HAVE_LIB_M},1>:m>)
 
-add_library(musvg STATIC src/musvg.c src/mubuf.cc)
+include_directories(src src/blake3 src/sha2)
 
-include_directories(src)
+add_library(musvg STATIC
+  src/musvg.c
+  src/mubuf.cc
+  src/sha2/sha256.c
+  src/sha2/sha512.c
+  src/blake3/blake3.c
+  src/blake3/blake3_dispatch.c
+  src/blake3/blake3_portable.c
+  src/blake3/blake3_sse2.c
+  src/blake3/blake3_sse41.c
+  src/blake3/blake3_avx2.c
+  src/blake3/blake3_avx512.c)
+
+set_source_files_properties(src/blake3/blake3_sse2.c PROPERTIES COMPILE_FLAGS -msse2)
+set_source_files_properties(src/blake3/blake3_sse41.c PROPERTIES COMPILE_FLAGS -msse4.1)
+set_source_files_properties(src/blake3/blake3_avx2.c PROPERTIES COMPILE_FLAGS -mavx2)
+set_source_files_properties(src/blake3/blake3_avx512.c PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512vl")
+
+add_executable(bench_blake3 test/bench_blake3.c)
+target_link_libraries(bench_blake3 musvg)
 
 add_executable(musvgtool app/musvgtool.c)
 target_link_libraries(musvgtool musvg ${EXTRA_LIBS})

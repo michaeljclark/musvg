@@ -63,6 +63,7 @@ static int mu_buf_get_fd(mu_buf *buf);
 static void mu_buf_set_fd(mu_buf *buf, int fd);
 static void* mu_buf_get_userdata(mu_buf *buf);
 static void mu_buf_set_userdata(mu_buf *buf, void *userdata);
+static void mu_buf_reset(mu_buf* buf);
 static void mu_buf_destroy(mu_buf* buf);
 
 static size_t mu_buf_avaiable_read(mu_buf* buf);
@@ -501,6 +502,12 @@ static inline void* mu_buf_get_userdata(mu_buf *buf)
 static inline void mu_buf_set_userdata(mu_buf *buf, void *userdata)
 {
     buf->userdata = userdata;
+}
+
+static void mu_buf_reset(mu_buf* buf)
+{
+    buf->read_marker = 0;
+    buf->write_marker = 0;
 }
 
 static inline void mu_buf_destroy(mu_buf* buf)

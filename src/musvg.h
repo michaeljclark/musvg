@@ -457,6 +457,9 @@ int musvg_node_attr_slots(musvg_parser *p, musvg_index node_idx, musvg_index *sl
 int musvg_attr_value_set(musvg_parser *p, musvg_index node_idx, musvg_attr attr, const char *value, size_t len);
 int musvg_attr_value_get(musvg_parser *p, musvg_index node_idx, musvg_attr attr, char *value, size_t *len);
 
+void musvg_hash_sum(musvg_parser* p);
+void musvg_hash_dump(musvg_parser* p);
+
 #ifdef __cplusplus
 }
 #endif

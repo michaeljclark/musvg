@@ -17,7 +17,9 @@ int main(int argc, char **argv)
     const char* output_filename = NULL;
     musvg_format_t input_format = musvg_format_none;
     musvg_format_t output_format = musvg_format_none;
-    int help_exit = 0, print_stats = 0, parser_dump = 0, parser_types = 0;
+    int print_stats = 0, parser_dump = 0;
+    int parser_hash = 0, parser_types = 0;
+    int help_exit = 0;
 
     int i = 1;
     while (i < argc) {
@@ -33,6 +35,8 @@ int main(int argc, char **argv)
             print_stats = 1;
         } else if (check_opt(argv[i],"-x","--dump")) {
             parser_dump = 1;
+        } else if (check_opt(argv[i],"-h","--hash")) {
+            parser_hash = 1;
         } else if (check_opt(argv[i],"-y","--types")) {
             parser_types = 1;
         } else if (check_opt(argv[i],"-d","--debug")) {
@@ -87,6 +91,11 @@ int main(int argc, char **argv)
     if (parser_dump) {
         printf("\n");
         musvg_parser_dump(p);
+    }
+    if (parser_hash) {
+        printf("\n");
+        musvg_hash_sum(p);
+        musvg_hash_dump(p);
     }
     if (parser_types) {
         printf("\n");
