@@ -96,6 +96,10 @@ strings             1         57         64         57         64
 totals                                           88990     126976
 ```
 
+## tests
+
+- json.svg bug
+
 ## topological hashing
 
 once the binary representation is in place, there is a plan to succinctly

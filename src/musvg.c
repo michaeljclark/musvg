@@ -41,6 +41,7 @@
 #include "sha512.h"
 #include "stdbits.h"
 #include "mubuf.h"
+#include "muvec.h"
 #include "musvg.h"
 
 #ifndef M_PI
@@ -121,8 +122,8 @@ static void* array_buffer_get(array_buffer *sb, size_t stride, size_t idx)
 
 static void array_buffer_resize(array_buffer *sb, size_t stride, size_t count)
 {
-    if (sb->count + count > sb->capacity) {
-        size_t new_capacity = pow2_ge(sb->count + count);
+    if (count > sb->capacity) {
+        size_t new_capacity = pow2_ge(count);
         sb->data = (char*)realloc(sb->data, stride * new_capacity);
 #if MUSVG_BUFFER_MEMSET
         memset(sb->data + stride * sb->capacity, 0, stride * (new_capacity - sb->capacity));
@@ -131,20 +132,19 @@ static void array_buffer_resize(array_buffer *sb, size_t stride, size_t count)
     }
 }
 
-static size_t array_buffer_add(array_buffer *sb, size_t stride, void *ptr)
+static size_t array_buffer_alloc(array_buffer *sb, size_t stride, size_t count)
 {
-    array_buffer_resize(sb, stride, 1);
-    size_t idx = sb->count++;
-    memcpy(sb->data + (idx * stride), ptr, stride);
+    array_buffer_resize(sb, stride, sb->count + count);
+    size_t idx = sb->count;
+    sb->count += count;
     return idx;
 }
 
-static void* array_buffer_alloc(array_buffer *sb, size_t stride, size_t count)
+static size_t array_buffer_add(array_buffer *sb, size_t stride, void *ptr)
 {
-    array_buffer_resize(sb, stride, count);
-    size_t idx = sb->count;
-    sb->count += count;
-    return sb->data + (idx * stride);
+    size_t idx = array_buffer_alloc(sb, stride, 1);
+    memcpy(sb->data + (idx * stride), ptr, stride);
+    return idx;
 }
 
 // Storage buffer
@@ -224,9 +224,8 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define points_size(p) array_buffer_size(&p->points,sizeof(float))
 #define points_capacity(p) array_buffer_capacity(&p->points,sizeof(float))
 #define points_get(p,idx) ((float*)array_buffer_get(&p->points,sizeof(float),idx))
-#define points_resize(p) array_buffer_resize(&p->points,sizeof(float))
 #define points_add(p,ptr) array_buffer_add(&p->points,sizeof(float),ptr)
-#define points_alloc(p,count) (float*)array_buffer_alloc(&p->points,sizeof(float),count)
+#define points_alloc(p,count) array_buffer_alloc(&p->points,sizeof(float),count)
 #define points_destroy(p) array_buffer_destroy(&p->points)
 
 #define path_ops_init(p) array_buffer_init(&p->path_ops,sizeof(musvg_path_op),16)
@@ -235,7 +234,6 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define path_ops_size(p) array_buffer_size(&p->path_ops,sizeof(musvg_path_op))
 #define path_ops_capacity(p) array_buffer_capacity(&p->path_ops,sizeof(musvg_path_op))
 #define path_ops_get(p,idx) ((musvg_path_op*)array_buffer_get(&p->path_ops,sizeof(musvg_path_op),idx))
-#define path_ops_resize(p) array_buffer_resize(&p->path_ops,sizeof(musvg_path_op))
 #define path_ops_add(p,ptr) array_buffer_add(&p->path_ops,sizeof(musvg_path_op),ptr)
 #define path_ops_destroy(p) array_buffer_destroy(&p->path_ops)
 
@@ -245,7 +243,6 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define path_points_size(p) array_buffer_size(&p->path_points,sizeof(musvg_points))
 #define path_points_capacity(p) array_buffer_capacity(&p->path_points,sizeof(musvg_points))
 #define path_points_get(p,idx) ((musvg_points*)array_buffer_get(&p->path_points,sizeof(musvg_points),idx))
-#define path_points_resize(p) array_buffer_resize(&p->path_points,sizeof(musvg_points))
 #define path_points_add(p,ptr) array_buffer_add(&p->path_points,sizeof(musvg_points),ptr)
 #define path_points_destroy(p) array_buffer_destroy(&p->path_points)
 
@@ -255,7 +252,6 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define brushes_size(p) array_buffer_size(&p->brushes,sizeof(musvg_brush))
 #define brushes_capacity(p) array_buffer_capacity(&p->brushes,sizeof(musvg_brush))
 #define brushes_get(p,idx) ((musvg_brush*)array_buffer_get(&p->brushes,sizeof(musvg_brush),idx))
-#define brushes_resize(p) array_buffer_resize(&p->brushes,sizeof(musvg_brushes))
 #define brushes_add(p,ptr) array_buffer_add(&p->brushes,sizeof(musvg_brush),ptr)
 #define brushes_destroy(p) array_buffer_destroy(&p->brushes)
 
@@ -265,8 +261,7 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define nodes_size(p) array_buffer_size(&p->nodes,sizeof(musvg_node))
 #define nodes_capacity(p) array_buffer_capacity(&p->nodes,sizeof(musvg_node))
 #define nodes_get(p,idx) ((musvg_node*)array_buffer_get(&p->nodes,sizeof(musvg_node),idx))
-#define nodes_resize(p) array_buffer_resize(&p->nodes,sizeof(musvg_node))
-#define nodes_alloc(p,count) (musvg_node*)array_buffer_alloc(&p->nodes,sizeof(musvg_node),count)
+#define nodes_alloc(p,count) array_buffer_alloc(&p->nodes,sizeof(musvg_node),count)
 #define nodes_destroy(p) array_buffer_destroy(&p->nodes)
 
 #define hashes_init(p) array_buffer_init(&p->hashes,sizeof(musvg_hash),16)
@@ -275,8 +270,8 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define hashes_size(p) array_buffer_size(&p->hashes,sizeof(musvg_hash))
 #define hashes_capacity(p) array_buffer_capacity(&p->hashes,sizeof(musvg_hash))
 #define hashes_get(p,idx) ((musvg_hash*)array_buffer_get(&p->hashes,sizeof(musvg_hash),idx))
-#define hashes_resize(p) array_buffer_resize(&p->hashes,sizeof(musvg_hash))
-#define hashes_alloc(p,count) (musvg_hash*)array_buffer_alloc(&p->hashes,sizeof(musvg_hash),count)
+#define hashes_resize(p,size) array_buffer_resize(&p->hashes,sizeof(musvg_hash),size)
+#define hashes_alloc(p,count) array_buffer_alloc(&p->hashes,sizeof(musvg_hash),count)
 #define hashes_destroy(p) array_buffer_destroy(&p->hashes)
 
 #define slots_init(p) array_buffer_init(&p->slots,sizeof(musvg_slot),16)
@@ -285,7 +280,6 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define slots_size(p) array_buffer_size(&p->slots,sizeof(musvg_slot))
 #define slots_capacity(p) array_buffer_capacity(&p->slots,sizeof(musvg_slot))
 #define slots_get(p,idx) ((musvg_slot*)array_buffer_get(&p->slots,sizeof(musvg_slot),idx))
-#define slots_resize(p) array_buffer_resize(&p->slots,sizeof(musvg_slot))
 #define slots_add(p,ptr) array_buffer_add(&p->slots,sizeof(musvg_slot),ptr)
 #define slots_destroy(p) array_buffer_destroy(&p->slots)
 
@@ -294,7 +288,6 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define storage_size(p) storage_buffer_size(&p->storage)
 #define storage_capacity(p) storage_buffer_capacity(&p->storage)
 #define storage_get(p,idx) ((char*)storage_buffer_get(&p->storage,idx))
-#define storage_resize(p,size) storage_buffer_resize(&p->storage,size)
 #define storage_alloc(p,size,align) storage_buffer_alloc(&p->storage,size,align)
 #define storage_destroy(p) storage_buffer_destroy(&p->storage)
 
@@ -303,7 +296,6 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 #define strings_size(p) storage_buffer_size(&p->strings)
 #define strings_capacity(p) storage_buffer_capacity(&p->strings)
 #define strings_get(p,idx) ((char*)storage_buffer_get(&p->strings,idx))
-#define strings_resize(p,size) storage_buffer_resize(&p->strings,size)
 #define strings_alloc(p,size,align) storage_buffer_alloc(&p->strings,size,align)
 #define strings_destroy(p) storage_buffer_destroy(&p->strings)
 
@@ -1856,13 +1848,14 @@ static void node_set_attr(musvg_parser *p, musvg_index idx, musvg_index attr)
 
 static musvg_index musvg_node_add(musvg_parser *p, musvg_element type)
 {
-    musvg_node *node = nodes_alloc(p, 1);
+    musvg_index node_idx = nodes_alloc(p, 1);
+    musvg_node *node = nodes_get(p, node_idx);
 
     uint depth = p->node_depth++;
     if (depth == musvg_max_depth) abort();
 
     musvg_index left_idx = p->node_stack[depth];
-    musvg_index node_idx = p->node_stack[depth] = nodes_count(p) - 1;
+    p->node_stack[depth] = node_idx;
     musvg_index parent_idx = depth > 0 ? p->node_stack[depth-1] : 0;
 
     node_set_type(p, node_idx, type);
@@ -1872,7 +1865,7 @@ static musvg_index musvg_node_add(musvg_parser *p, musvg_element type)
     node_set_attr(p, node_idx, 0);
     node_set_down(p, parent_idx, node_idx);
 
-    return (musvg_index)(node - nodes_get(p, 0));
+    return node_idx;
 }
 
 static void musvg_stack_pop(musvg_parser *p)
@@ -2085,7 +2078,8 @@ int musvg_read_binary_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, m
         musvg_points points = { points_count(p), count };
         path_ops_add(p, &op);
         path_points_add(p, &points);
-        float *points_arr = points_alloc(p, points.point_count);
+        size_t points_idx = points_alloc(p, points.point_count);
+        float *points_arr = points_get(p, points_idx);
         assert(!p->f32_read_vec(buf, points_arr, points.point_count));
     }
     return 0;
@@ -2098,7 +2092,8 @@ int musvg_read_binary_points(musvg_parser *p, mu_buf *buf, musvg_index node_idx,
     assert(!mu_leb_u64_read(buf, &count));
     musvg_points points = { points_count(p), count };
     *pp = points;
-    float *points_arr = points_alloc(p, points.point_count);
+    size_t points_idx = points_alloc(p, points.point_count);
+    float *points_arr = points_get(p, points_idx);
     assert(!p->f32_read_vec(buf, points_arr, points.point_count));
     return 0;
 }
@@ -3204,7 +3199,7 @@ void musvg_hash_sum(musvg_parser* p)
 {
     musvg_hash_state state;
     state.buf = mu_resizable_buf_new();
-    hashes_alloc(p, nodes_count(p));
+    hashes_resize(p, nodes_count(p));
     p->f32_write = mu_ieee754_f32_write_byval;
     p->f32_write_vec = mu_ieee754_f32_write_vec;
     musvg_visit(p, &state, musvg_hash_sum_begin, NULL);
