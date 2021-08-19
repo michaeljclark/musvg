@@ -50,6 +50,10 @@ include(CheckLibraryExists)
 check_library_exists(m sqrtf "" HAVE_LIB_M)
 list (APPEND EXTRA_LIBS $<$<EQUAL:${HAVE_LIB_M},1>:m>)
 
+add_subdirectory(third_party/mimalloc)
+include_directories(third_party/mimalloc/include)
+list (APPEND EXTRA_LIBS mimalloc)
+
 include_directories(src src/blake3 src/sha2)
 
 add_library(musvg STATIC
@@ -71,7 +75,7 @@ set_source_files_properties(src/blake3/blake3_avx2.c PROPERTIES COMPILE_FLAGS -m
 set_source_files_properties(src/blake3/blake3_avx512.c PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512vl")
 
 add_executable(bench_blake3 test/bench_blake3.c)
-target_link_libraries(bench_blake3 musvg)
+target_link_libraries(bench_blake3 musvg ${EXTRA_LIBS})
 
 add_executable(musvgtool app/musvgtool.c)
 target_link_libraries(musvgtool musvg ${EXTRA_LIBS})
