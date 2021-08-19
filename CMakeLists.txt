@@ -50,6 +50,25 @@ include(CheckLibraryExists)
 check_library_exists(m sqrtf "" HAVE_LIB_M)
 list (APPEND EXTRA_LIBS $<$<EQUAL:${HAVE_LIB_M},1>:m>)
 
+# check for the C thread support library
+find_package(Threads REQUIRED)
+check_include_file("threads.h" have_threads_h)
+set(CMAKE_REQUIRED_LIBRARIES ${CMAKE_THREAD_LIBS_INIT})
+check_c_source_compiles("#include <threads.h>
+int main() { thrd_t t; thrd_create(&t, &main, NULL); }" has_thread_support)
+check_c_source_compiles("#include <time.h>
+int main() { struct timespec ts; timespec_get(&ts, 0); }" has_timespec_get)
+
+if(NOT has_thread_support)
+include_directories(src/compat)
+endif()
+if(CMAKE_USE_PTHREADS_INIT)
+add_definitions(-DHAVE_PTHREAD)
+if(has_timespec_get)
+add_definitions(-DHAVE_TIMESPEC_GET)
+endif()
+endif()
+
 add_subdirectory(third_party/mimalloc)
 include_directories(third_party/mimalloc/include)
 list (APPEND EXTRA_LIBS mimalloc)
