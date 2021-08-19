@@ -35,6 +35,7 @@
 #include <math.h>
 #include <ctype.h>
 #include <alloca.h>
+#include <threads.h>
 
 #include "blake3.h"
 #include "sha256.h"
@@ -49,7 +50,7 @@
 #endif
 
 #define MUSVG_BUFFER_MEMSET 0
-
+#define USE_MUVEC 0
 #define USE_BLAKE3 1
 #define USE_SHA256 0
 
@@ -100,11 +101,6 @@ static size_t array_buffer_count(array_buffer *sb)
     return sb->count;
 }
 
-static void* array_buffer_data(array_buffer *sb)
-{
-    return sb->data;
-}
-
 static size_t array_buffer_size(array_buffer *sb, size_t stride)
 {
     return sb->count * stride;
@@ -118,6 +114,11 @@ static size_t array_buffer_capacity(array_buffer *sb, size_t stride)
 static void* array_buffer_get(array_buffer *sb, size_t stride, size_t idx)
 {
     return sb->data + idx * stride;
+}
+
+static int array_buffer_linear(array_buffer *sb, size_t idx, size_t count)
+{
+    return 1;
 }
 
 static void array_buffer_resize(array_buffer *sb, size_t stride, size_t count)
@@ -174,11 +175,6 @@ static void storage_buffer_destroy(storage_buffer *sb)
     sb->data = NULL;
 }
 
-static void* storage_buffer_data(storage_buffer *sb)
-{
-    return sb->data;
-}
-
 static size_t storage_buffer_size(storage_buffer *sb)
 {
     return sb->offset;
@@ -218,86 +214,104 @@ static musvg_index storage_buffer_alloc(storage_buffer *sb, size_t size, size_t 
 
 // SVG parser init
 
-#define points_init(p) array_buffer_init(&p->points,sizeof(float),16)
-#define points_count(p) array_buffer_count(&p->points)
-#define points_data(p) array_buffer_data(&p->points)
-#define points_size(p) array_buffer_size(&p->points,sizeof(float))
-#define points_capacity(p) array_buffer_capacity(&p->points,sizeof(float))
-#define points_get(p,idx) ((float*)array_buffer_get(&p->points,sizeof(float),idx))
-#define points_add(p,ptr) array_buffer_add(&p->points,sizeof(float),ptr)
-#define points_alloc(p,count) array_buffer_alloc(&p->points,sizeof(float),count)
-#define points_destroy(p) array_buffer_destroy(&p->points)
+#if USE_MUVEC
+#define vec mu_vec
+#define vec_init(p,stride,size)      mu_vec_init(p,stride,size)
+#define vec_resize(p,stride,count)   mu_vec_resize(p,stride,count)
+#define vec_destroy(p)               mu_vec_destroy(p)
+#define vec_count(p)                 mu_vec_count(p)
+#define vec_size(p,stride)           mu_vec_size(p,stride)
+#define vec_capacity(p,stride)       mu_vec_capacity(p,stride)
+#define vec_linear(p,idx,count)      mu_vec_linear(p,idx,count)
+#define vec_get(p,stride,idx)        mu_vec_get(p,stride,idx)
+#define vec_set(p,stride,idx,ptr)    mu_vec_set(p,stride,idx,ptr)
+#define vec_add(p,stride,ptr)        mu_vec_add_relaxed(p,stride,ptr)
+#define vec_alloc(p,stride,count)    mu_vec_alloc_relaxed(p,stride,count)
+#else
+#define vec array_buffer
+#define vec_init(p,stride,size)      array_buffer_init(p,stride,size)
+#define vec_resize(p,stride,count)   array_buffer_resize(p,stride,count)
+#define vec_destroy(p)               array_buffer_destroy(p)
+#define vec_count(p)                 array_buffer_count(p)
+#define vec_size(p,stride)           array_buffer_size(p,stride)
+#define vec_capacity(p,stride)       array_buffer_capacity(p,stride)
+#define vec_linear(p,idx,count)      array_buffer_linear(p,idx,count)
+#define vec_get(p,stride,idx)        array_buffer_get(p,stride,idx)
+#define vec_add(p,stride,ptr)        array_buffer_add(p,stride,ptr)
+#define vec_alloc(p,stride,count)    array_buffer_alloc(p,stride,count)
+#endif
 
-#define path_ops_init(p) array_buffer_init(&p->path_ops,sizeof(musvg_path_op),16)
-#define path_ops_count(p) array_buffer_count(&p->path_ops)
-#define path_ops_data(p) array_buffer_data(&p->path_ops)
-#define path_ops_size(p) array_buffer_size(&p->path_ops,sizeof(musvg_path_op))
-#define path_ops_capacity(p) array_buffer_capacity(&p->path_ops,sizeof(musvg_path_op))
-#define path_ops_get(p,idx) ((musvg_path_op*)array_buffer_get(&p->path_ops,sizeof(musvg_path_op),idx))
-#define path_ops_add(p,ptr) array_buffer_add(&p->path_ops,sizeof(musvg_path_op),ptr)
-#define path_ops_destroy(p) array_buffer_destroy(&p->path_ops)
+#define points_init(p) vec_init(&p->points,sizeof(float),16)
+#define points_destroy(p) vec_destroy(&p->points)
+#define points_count(p) vec_count(&p->points)
+#define points_size(p) vec_size(&p->points,sizeof(float))
+#define points_capacity(p) vec_capacity(&p->points,sizeof(float))
+#define points_linear(p,idx,count) vec_linear(&p->points,idx,count)
+#define points_get(p,idx) ((float*)vec_get(&p->points,sizeof(float),idx))
+#define points_add(p,ptr) vec_add(&p->points,sizeof(float),ptr)
+#define points_alloc(p,count) vec_alloc(&p->points,sizeof(float),count)
 
-#define path_points_init(p) array_buffer_init(&p->path_points,sizeof(musvg_points),16)
-#define path_points_count(p) array_buffer_count(&p->path_points)
-#define path_points_data(p) array_buffer_data(&p->path_points)
-#define path_points_size(p) array_buffer_size(&p->path_points,sizeof(musvg_points))
-#define path_points_capacity(p) array_buffer_capacity(&p->path_points,sizeof(musvg_points))
-#define path_points_get(p,idx) ((musvg_points*)array_buffer_get(&p->path_points,sizeof(musvg_points),idx))
-#define path_points_add(p,ptr) array_buffer_add(&p->path_points,sizeof(musvg_points),ptr)
-#define path_points_destroy(p) array_buffer_destroy(&p->path_points)
+#define path_ops_init(p) vec_init(&p->path_ops,sizeof(musvg_path_op),16)
+#define path_ops_destroy(p) vec_destroy(&p->path_ops)
+#define path_ops_count(p) vec_count(&p->path_ops)
+#define path_ops_size(p) vec_size(&p->path_ops,sizeof(musvg_path_op))
+#define path_ops_capacity(p) vec_capacity(&p->path_ops,sizeof(musvg_path_op))
+#define path_ops_get(p,idx) ((musvg_path_op*)vec_get(&p->path_ops,sizeof(musvg_path_op),idx))
+#define path_ops_add(p,ptr) vec_add(&p->path_ops,sizeof(musvg_path_op),ptr)
 
-#define brushes_init(p) array_buffer_init(&p->brushes,sizeof(musvg_brush),16)
-#define brushes_count(p) array_buffer_count(&p->brushes)
-#define brushes_data(p) array_buffer_data(&p->brushes)
-#define brushes_size(p) array_buffer_size(&p->brushes,sizeof(musvg_brush))
-#define brushes_capacity(p) array_buffer_capacity(&p->brushes,sizeof(musvg_brush))
-#define brushes_get(p,idx) ((musvg_brush*)array_buffer_get(&p->brushes,sizeof(musvg_brush),idx))
-#define brushes_add(p,ptr) array_buffer_add(&p->brushes,sizeof(musvg_brush),ptr)
-#define brushes_destroy(p) array_buffer_destroy(&p->brushes)
+#define path_points_init(p) vec_init(&p->path_points,sizeof(musvg_points),16)
+#define path_points_destroy(p) vec_destroy(&p->path_points)
+#define path_points_count(p) vec_count(&p->path_points)
+#define path_points_size(p) vec_size(&p->path_points,sizeof(musvg_points))
+#define path_points_capacity(p) vec_capacity(&p->path_points,sizeof(musvg_points))
+#define path_points_get(p,idx) ((musvg_points*)vec_get(&p->path_points,sizeof(musvg_points),idx))
+#define path_points_add(p,ptr) vec_add(&p->path_points,sizeof(musvg_points),ptr)
 
-#define nodes_init(p) array_buffer_init(&p->nodes,sizeof(musvg_node),16)
-#define nodes_count(p) array_buffer_count(&p->nodes)
-#define nodes_data(p) array_buffer_data(&p->nodes)
-#define nodes_size(p) array_buffer_size(&p->nodes,sizeof(musvg_node))
-#define nodes_capacity(p) array_buffer_capacity(&p->nodes,sizeof(musvg_node))
-#define nodes_get(p,idx) ((musvg_node*)array_buffer_get(&p->nodes,sizeof(musvg_node),idx))
-#define nodes_alloc(p,count) array_buffer_alloc(&p->nodes,sizeof(musvg_node),count)
-#define nodes_destroy(p) array_buffer_destroy(&p->nodes)
+#define brushes_init(p) vec_init(&p->brushes,sizeof(musvg_brush),16)
+#define brushes_destroy(p) vec_destroy(&p->brushes)
+#define brushes_count(p) vec_count(&p->brushes)
+#define brushes_size(p) vec_size(&p->brushes,sizeof(musvg_brush))
+#define brushes_capacity(p) vec_capacity(&p->brushes,sizeof(musvg_brush))
+#define brushes_get(p,idx) ((musvg_brush*)vec_get(&p->brushes,sizeof(musvg_brush),idx))
+#define brushes_add(p,ptr) vec_add(&p->brushes,sizeof(musvg_brush),ptr)
 
-#define hashes_init(p) array_buffer_init(&p->hashes,sizeof(musvg_hash),16)
-#define hashes_count(p) array_buffer_count(&p->hashes)
-#define hashes_data(p) array_buffer_data(&p->hashes)
-#define hashes_size(p) array_buffer_size(&p->hashes,sizeof(musvg_hash))
-#define hashes_capacity(p) array_buffer_capacity(&p->hashes,sizeof(musvg_hash))
-#define hashes_get(p,idx) ((musvg_hash*)array_buffer_get(&p->hashes,sizeof(musvg_hash),idx))
-#define hashes_resize(p,size) array_buffer_resize(&p->hashes,sizeof(musvg_hash),size)
-#define hashes_alloc(p,count) array_buffer_alloc(&p->hashes,sizeof(musvg_hash),count)
-#define hashes_destroy(p) array_buffer_destroy(&p->hashes)
+#define nodes_init(p) vec_init(&p->nodes,sizeof(musvg_node),16)
+#define nodes_destroy(p) vec_destroy(&p->nodes)
+#define nodes_count(p) vec_count(&p->nodes)
+#define nodes_size(p) vec_size(&p->nodes,sizeof(musvg_node))
+#define nodes_capacity(p) vec_capacity(&p->nodes,sizeof(musvg_node))
+#define nodes_get(p,idx) ((musvg_node*)vec_get(&p->nodes,sizeof(musvg_node),idx))
+#define nodes_alloc(p,count) vec_alloc(&p->nodes,sizeof(musvg_node),count)
 
-#define slots_init(p) array_buffer_init(&p->slots,sizeof(musvg_slot),16)
-#define slots_count(p) array_buffer_count(&p->slots)
-#define slots_data(p) array_buffer_data(&p->slots)
-#define slots_size(p) array_buffer_size(&p->slots,sizeof(musvg_slot))
-#define slots_capacity(p) array_buffer_capacity(&p->slots,sizeof(musvg_slot))
-#define slots_get(p,idx) ((musvg_slot*)array_buffer_get(&p->slots,sizeof(musvg_slot),idx))
-#define slots_add(p,ptr) array_buffer_add(&p->slots,sizeof(musvg_slot),ptr)
-#define slots_destroy(p) array_buffer_destroy(&p->slots)
+#define hashes_init(p) vec_init(&p->hashes,sizeof(musvg_hash),16)
+#define hashes_destroy(p) vec_destroy(&p->hashes)
+#define hashes_count(p) vec_count(&p->hashes)
+#define hashes_size(p) vec_size(&p->hashes,sizeof(musvg_hash))
+#define hashes_capacity(p) vec_capacity(&p->hashes,sizeof(musvg_hash))
+#define hashes_get(p,idx) ((musvg_hash*)vec_get(&p->hashes,sizeof(musvg_hash),idx))
+#define hashes_resize(p,size) vec_resize(&p->hashes,sizeof(musvg_hash),size)
+
+#define slots_init(p) vec_init(&p->slots,sizeof(musvg_slot),16)
+#define slots_destroy(p) vec_destroy(&p->slots)
+#define slots_count(p) vec_count(&p->slots)
+#define slots_size(p) vec_size(&p->slots,sizeof(musvg_slot))
+#define slots_capacity(p) vec_capacity(&p->slots,sizeof(musvg_slot))
+#define slots_get(p,idx) ((musvg_slot*)vec_get(&p->slots,sizeof(musvg_slot),idx))
+#define slots_add(p,ptr) vec_add(&p->slots,sizeof(musvg_slot),ptr)
 
 #define storage_init(p) storage_buffer_init(&p->storage,16)
-#define storage_data(p) storage_buffer_data(&p->storage)
+#define storage_destroy(p) storage_buffer_destroy(&p->storage)
 #define storage_size(p) storage_buffer_size(&p->storage)
 #define storage_capacity(p) storage_buffer_capacity(&p->storage)
 #define storage_get(p,idx) ((char*)storage_buffer_get(&p->storage,idx))
 #define storage_alloc(p,size,align) storage_buffer_alloc(&p->storage,size,align)
-#define storage_destroy(p) storage_buffer_destroy(&p->storage)
 
 #define strings_init(p) storage_buffer_init(&p->strings,16)
-#define strings_data(p) storage_buffer_data(&p->strings)
+#define strings_destroy(p) storage_buffer_destroy(&p->strings)
 #define strings_size(p) storage_buffer_size(&p->strings)
 #define strings_capacity(p) storage_buffer_capacity(&p->strings)
 #define strings_get(p,idx) ((char*)storage_buffer_get(&p->strings,idx))
 #define strings_alloc(p,size,align) storage_buffer_alloc(&p->strings,size,align)
-#define strings_destroy(p) storage_buffer_destroy(&p->strings)
 
 static inline musvg_attr as_attr(int i) { return (musvg_attr)i; }
 
@@ -332,13 +346,13 @@ struct musvg_hash
 
 struct musvg_parser
 {
-    array_buffer points;       /* polygon points */
-    array_buffer path_ops;     /* path ops */
-    array_buffer path_points;  /* path op points */
-    array_buffer brushes;      /* brushes*/
-    array_buffer nodes;        /* node graph */
-    array_buffer hashes;       /* node hashes */
-    array_buffer slots;        /* attribute storage slot linked list */
+    vec points;       /* polygon points */
+    vec path_ops;     /* path ops */
+    vec path_points;  /* path op points */
+    vec brushes;      /* brushes*/
+    vec nodes;        /* node graph */
+    vec hashes;       /* node hashes */
+    vec slots;        /* attribute storage slot linked list */
     storage_buffer storage;    /* aligned attribute value storage */
     storage_buffer strings;    /* variable length string storage */
 
@@ -2078,9 +2092,15 @@ int musvg_read_binary_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, m
         musvg_points points = { points_count(p), count };
         path_ops_add(p, &op);
         path_points_add(p, &points);
-        size_t points_idx = points_alloc(p, points.point_count);
-        float *points_arr = points_get(p, points_idx);
-        assert(!p->f32_read_vec(buf, points_arr, points.point_count));
+        ullong points_count = points.point_count;
+        ullong points_idx = points_alloc(p, points_count);
+        if (points_linear(p, points_idx, points.point_count)) {
+            assert(!p->f32_read_vec(buf, points_get(p, points_idx), points_count));
+        } else {
+            for (size_t k = 0; k < points.point_count; k++) {
+                assert(!p->f32_read(buf, points_get(p, points_idx + k)));
+            }
+        }
     }
     return 0;
 }
@@ -2092,9 +2112,15 @@ int musvg_read_binary_points(musvg_parser *p, mu_buf *buf, musvg_index node_idx,
     assert(!mu_leb_u64_read(buf, &count));
     musvg_points points = { points_count(p), count };
     *pp = points;
-    size_t points_idx = points_alloc(p, points.point_count);
-    float *points_arr = points_get(p, points_idx);
-    assert(!p->f32_read_vec(buf, points_arr, points.point_count));
+    ullong points_count = points.point_count;
+    ullong points_idx = points_alloc(p, points_count);
+    if (points_linear(p, points_idx, points.point_count)) {
+        assert(!p->f32_read_vec(buf, points_get(p, points_idx), points_count));
+    } else {
+        for (size_t k = 0; k < points.point_count; k++) {
+            assert(!p->f32_read(buf, points_get(p, points_idx + k)));
+        }
+    }
     return 0;
 }
 
@@ -2196,11 +2222,17 @@ int musvg_write_binary_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, 
         const  musvg_path_op *op = path_ops_get(p, ops.op_offset + j);
         const  musvg_points *points = path_points_get(p, ops.op_offset + j);
         musvg_small code = op->code;
-        ullong count = points->point_count;
-        const float *v = points_get(p, points->point_offset);
+        ullong points_count = points->point_count;
+        ullong points_idx = points->point_offset;
         assert(mu_buf_write_i8(buf, (int8_t)code));
-        assert(!mu_leb_u64_write(buf, &count));
-        assert(!p->f32_write_vec(buf, v, count));
+        assert(!mu_leb_u64_write(buf, &points_count));
+        if (points_linear(p, points_idx, points_count)) {
+            assert(!p->f32_write_vec(buf, points_get(p, points_idx), points_count));
+        } else {
+            for (size_t k = 0; k < points_count; k++) {
+                assert(!p->f32_write(buf, *points_get(p, points_idx + k)));
+            }
+        }
     }
     return 0;
 }
@@ -2208,10 +2240,16 @@ int musvg_write_binary_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, 
 int musvg_write_binary_points(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
     musvg_points points = *(musvg_points*)attr_pointer(p, node_idx, attr);
-    const float *v = points_get(p, points.point_offset);
-    ullong count = points.point_count;
-    assert(!mu_leb_u64_write(buf, &count));
-    assert(!p->f32_write_vec(buf, v, count));
+    ullong points_count = points.point_count;
+    ullong points_idx = points.point_offset;
+    assert(!mu_leb_u64_write(buf, &points_count));
+    if (points_linear(p, points_idx, points_count)) {
+        assert(!p->f32_write_vec(buf, points_get(p, points_idx), points_count));
+    } else {
+        for (size_t k = 0; k < points_count; k++) {
+            assert(!p->f32_write(buf, *points_get(p, points_idx + k)));
+        }
+    }
     return 0;
 }
 
@@ -2410,10 +2448,10 @@ int musvg_write_text_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, mu
         const musvg_points *points = path_points_get(p, ops.op_offset + j);
         int8_t code = musvg_path_opcode_t_cmd_char(op->code);
         assert(mu_buf_write_i8(buf, code != last_code ? code : ' '));
-        const float *v = points_get(p, points->point_offset);
         for (musvg_index k = 0; k < points->point_count; k++) {
             if (k > 0) assert(mu_buf_write_i8(buf, ','));
-            int len = snprintf(str, sizeof(str), "%.8g", v[k]);
+            float v = *points_get(p, points->point_offset + k);
+            int len = snprintf(str, sizeof(str), "%.8g", v);
             assert(mu_buf_write_bytes(buf, str, len) == len);
         }
         last_code = code;
@@ -2424,11 +2462,11 @@ int musvg_write_text_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, mu
 int musvg_write_text_points(musvg_parser *p, mu_buf *buf, musvg_index node_idx, musvg_attr attr)
 {
     musvg_points points = *(musvg_points*)attr_pointer(p, node_idx, attr);
-    const float *v = points_get(p, points.point_offset);
     for (musvg_index j = 0; j < points.point_count; j++) {
         char str[128];
         if (j > 0) assert(mu_buf_write_i8(buf, j % 2 ? ',' : ' '));
-        int len = snprintf(str, sizeof(str), "%.8g", v[j]);
+        float v = *points_get(p, points.point_offset + j);
+        int len = snprintf(str, sizeof(str), "%.8g", v);
         assert(mu_buf_write_bytes(buf, str, len) == len);
     }
     return 0;
@@ -2941,7 +2979,7 @@ static void print_stats_lines()
         "----------", "----------", "----------");
 }
 
-static void print_array_stats(array_buffer *ab, size_t stride, const char *name)
+static void print_array_stats(vec *ab, size_t stride, const char *name)
 {
     printf("%-15s %5zu %10zu %10zu %10zu %10zu\n",
         name, stride, ab->count, ab->capacity,
