@@ -27,6 +27,9 @@ void t1()
 
 int main(int argc, const char **argv)
 {
-	mu_set_debug(0);
+    if (argc == 2 && strcmp(argv[1], "-v") == 0) {
+        mu_set_debug(1);
+    }
+
 	t1();
 }

@@ -84,7 +84,10 @@ void t4()
 
 int main(int argc, char **argv)
 {
-    //mu_set_debug(1);
+    if (argc == 2 && strcmp(argv[1], "-v") == 0) {
+        mu_set_debug(1);
+    }
+
     t1();
     t2();
     t3();
