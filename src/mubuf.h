@@ -15,6 +15,8 @@
 #include "stdbits.h"
 #include "stdendian.h"
 
+#include "mulog.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,16 +31,6 @@ typedef signed long long s64;
 typedef unsigned long long u64;
 typedef float f32;
 typedef double f64;
-
-/*
- * Debug
- */
-
-extern int debug;
-
-static void mu_set_debug(int level) { debug = level; }
-static void log_printf(const char* fmt, ...);
-#define debugf(...) if(debug) log_printf(__VA_ARGS__)
 
 /*
  * buffer interface
@@ -757,32 +749,6 @@ static inline size_t mu_buf_read_bytes_unchecked(mu_buf* buf, char *dst, size_t 
     mu_memcpy(dst, &buf->data[buf->read_marker], len);
     buf->read_marker += len;
     return len;
-}
-
-/*
- * logging implementation
- */
-
-static void log_printf(const char* fmt, ...)
-{
-    int len;
-    char buf[128];
-    char *pbuf = buf;
-    char *hbuf = NULL;
-    va_list ap;
-    va_start(ap, fmt);
-    len = vsnprintf(pbuf, sizeof(buf)-1, fmt, ap);
-    pbuf[sizeof(buf)-1] = '\0';
-    va_end(ap);
-    if (len >= sizeof(buf)) {
-        pbuf = hbuf = (char*)malloc(len + 1);
-        va_start(ap, fmt);
-        len = vsnprintf(pbuf, len + 1, fmt, ap);
-        pbuf[len] = '\0';
-        va_end(ap);
-    }
-    fwrite(pbuf, 1, len, stderr);
-    if (hbuf) free(hbuf);
 }
 
 #ifdef __cplusplus

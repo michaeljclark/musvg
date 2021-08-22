@@ -102,6 +102,9 @@ target_link_libraries(musvgtool musvg ${EXTRA_LIBS})
 add_executable(test_muvec test/test_muvec.c)
 target_link_libraries(test_muvec musvg ${EXTRA_LIBS})
 
+add_executable(test_mumule test/test_mumule.c)
+target_link_libraries(test_mumule musvg ${EXTRA_LIBS})
+
 add_executable(test_mubuf test/test_mubuf.c)
 target_link_libraries(test_mubuf musvg ${EXTRA_LIBS})
 
