@@ -28,6 +28,7 @@ static void mule_init(mu_mule *mule, size_t num_threads, mumule_work_fn kernel, 
 static int mule_launch(mu_mule *mule);
 static size_t mule_submit(mu_mule *mule, size_t count);
 static int mule_synchronize(mu_mule *mule);
+static int mule_shutdown(mu_mule *mule);
 static int mule_destroy(mu_mule *mule);
 
 /*
@@ -122,6 +123,8 @@ static int mule_thread(void *arg)
 
 static int mule_launch(mu_mule *mule)
 {
+    if (atomic_load(&mule->running)) return 0;
+
     debugf("mule_launch: starting threads\n");
 
     for (size_t idx = 0; idx < mule->num_threads; idx++) {
@@ -146,12 +149,12 @@ static size_t mule_submit(mu_mule *mule, size_t count)
 
 static int mule_synchronize(mu_mule *mule)
 {
+    size_t queued, processed;
+
     debugf("mule_synchronize: quench\n");
 
-    mtx_lock(&mule->mutex);
-
     /* wait for queue to quench */
-    size_t queued, processed;
+    mtx_lock(&mule->mutex);
     for (;;) {
         queued = atomic_load_explicit(&mule->queued, __ATOMIC_ACQUIRE);
         processed = atomic_load_explicit(&mule->processed, __ATOMIC_ACQUIRE);
@@ -161,9 +164,19 @@ static int mule_synchronize(mu_mule *mule)
             break;
         }
     };
+    mtx_unlock(&mule->mutex);
+
+    return 0;
+}
+
+static int mule_shutdown(mu_mule *mule)
+{
+    if (!atomic_load(&mule->running)) return 0;
 
     /* shutdown workers */
     debugf("mule_synchronize: stopping\n");
+
+    mtx_lock(&mule->mutex);
     atomic_store_explicit(&mule->running, 0, __ATOMIC_RELEASE);
     mtx_unlock(&mule->mutex);
     cnd_broadcast(&mule->worker);
@@ -173,14 +186,19 @@ static int mule_synchronize(mu_mule *mule)
         int res;
         assert(!thrd_join(mule->threads[i].thread, &res));
     }
+
     return 0;
 }
 
 static int mule_destroy(mu_mule *mule)
 {
+    mule_shutdown(mule);
+
+    mtx_destroy(&mule->mutex);
     cnd_destroy(&mule->worker);
     cnd_destroy(&mule->dispatcher);
-    return -1;
+
+    return 0;
 }
 
 #ifdef __cplusplus
