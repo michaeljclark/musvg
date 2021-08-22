@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+option(MUSVG_ENABLE_MIMALLOC "Enable MIMALLOC" ON)
 option(MUSVG_ENABLE_ASAN "Enable ASAN" OFF)
 option(MUSVG_ENABLE_MSAN "Enable MSAN" OFF)
 option(MUSVG_ENABLE_UBSAN "Enable UBSAN" OFF)
@@ -69,9 +70,11 @@ add_definitions(-DHAVE_TIMESPEC_GET)
 endif()
 endif()
 
+if(MUSVG_ENABLE_MIMALLOC)
 add_subdirectory(third_party/mimalloc)
 include_directories(third_party/mimalloc/include)
-list (APPEND EXTRA_LIBS mimalloc)
+list (APPEND EXTRA_LIBS mimalloc-static)
+endif()
 
 include_directories(src src/blake3 src/sha2)
 
