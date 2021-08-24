@@ -11,6 +11,14 @@
 
 #include "mulog.h"
 
+#if defined(_MSC_VER)
+#define ALIGNED(x) __declspec(align(x))
+#elif defined(__GNUC__)
+#define ALIGNED(x) __attribute__((aligned(x)))
+#else
+#define ALIGNED(x)
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -61,18 +69,20 @@ struct mu_thread { mu_mule *mule; size_t idx; thrd_t thread; };
 
 struct mu_mule
 {
-    _Atomic(bool)    running;
-    _Atomic(size_t)  queued;          /* consider aligning these */
-    _Atomic(size_t)  processing;      /* counters so they have */
-    _Atomic(size_t)  processed;       /* dedicated cache lines. */
     mtx_t            mutex;
     cnd_t            wake_dispatcher;
     cnd_t            wake_worker;
     void*            userdata;
     mumule_work_fn   kernel;
     size_t           num_threads;
+    _Atomic(size_t)  running;
     _Atomic(size_t)  threads_running;
+
     mu_thread        threads[mumule_max_threads];
+
+    ALIGNED(64) _Atomic(size_t)  queued;
+    ALIGNED(64) _Atomic(size_t)  processing;
+    ALIGNED(64) _Atomic(size_t)  processed;
 };
 
 /*
@@ -136,8 +146,8 @@ static int mule_thread(void *arg)
             /*
              * [lost-wakeup-issue]
              *
-             * dispatcher can pre-empted before calling cnd_wait so it uses
-             * cond_timedwait instead. needs edge triggered conditions.
+             * dispatcher can pre-empted before cnd_wait so the dispatcher
+             * uses cond_timedwait. needs edge triggered conditions.
              */
             cnd_signal(&mule->wake_dispatcher);
         }
@@ -197,8 +207,8 @@ static int mule_synchronize(mu_mule *mule)
             /*
              * [lost-wakeup-issue]
              *
-             * dispatcher can pre-empted before calling cnd_wait so it uses
-             * cond_timedwait instead. needs edge triggered conditions.
+             * dispatcher can pre-empted before cnd_wait so the dispatcher
+             * uses cond_timedwait. needs edge triggered conditions.
              */
             cnd_timedwait(&mule->wake_dispatcher, &mule->mutex, &abstime);
         } else {
