@@ -33,4 +33,6 @@ int main(int argc, const char **argv)
     }
 
 	t1();
+
+	debugf("test-complete");
 }
