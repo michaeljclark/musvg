@@ -203,21 +203,21 @@ int mu_asn1_ber_real_f64_write_byval(mu_buf *buf, size_t len, const double value
 struct f64_result mu_asn1_der_real_f64_read_byval(mu_buf *buf, asn1_tag _tag);
 int mu_asn1_der_real_f64_write_byval(mu_buf *buf, asn1_tag _tag, const double value);
 
-int mu_vf128_f64_resultread(mu_buf *buf, double *value);
-int mu_vf128_f64_resultwrite(mu_buf *buf, const double *value);
-struct f64_result mu_vf128_f64_resultread_byval(mu_buf *buf);
-int mu_vf128_f64_resultwrite_byval(mu_buf *buf, const double value);
+int mu_vf128_f64_read(mu_buf *buf, double *value);
+int mu_vf128_f64_write(mu_buf *buf, const double *value);
+struct f64_result mu_vf128_f64_read_byval(mu_buf *buf);
+int mu_vf128_f64_write_byval(mu_buf *buf, const double value);
 
-int mu_vf128_f64_resultread_vec(mu_buf *buf, double *value, size_t count);
-int mu_vf128_f64_resultwrite_vec(mu_buf *buf, const double *value, size_t count);
+int mu_vf128_f64_read_vec(mu_buf *buf, double *value, size_t count);
+int mu_vf128_f64_write_vec(mu_buf *buf, const double *value, size_t count);
 
-int mu_vf128_f32_resultread(mu_buf *buf, float *value);
-int mu_vf128_f32_resultwrite(mu_buf *buf, const float *value);
-struct f32_result mu_vf128_f32_resultread_byval(mu_buf *buf);
-int mu_vf128_f32_resultwrite_byval(mu_buf *buf, const float value);
+int mu_vf128_f32_read(mu_buf *buf, float *value);
+int mu_vf128_f32_write(mu_buf *buf, const float *value);
+struct f32_result mu_vf128_f32_read_byval(mu_buf *buf);
+int mu_vf128_f32_write_byval(mu_buf *buf, const float value);
 
-int mu_vf128_f32_resultread_vec(mu_buf *buf, float *value, size_t count);
-int mu_vf128_f32_resultwrite_vec(mu_buf *buf, const float *value, size_t count);
+int mu_vf128_f32_read_vec(mu_buf *buf, float *value, size_t count);
+int mu_vf128_f32_write_vec(mu_buf *buf, const float *value, size_t count);
 
 int mu_ieee754_f64_read(mu_buf *buf, float *value);
 int mu_ieee754_f64_write(mu_buf *buf, const float *value);

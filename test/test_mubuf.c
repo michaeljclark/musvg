@@ -48,16 +48,16 @@ void t3()
 
     wbuf = mu_buffered_writer_new("test/output/t3.dat");
     for (size_t i = 0; i < 1024; i++) {
-        assert((nwrote = mu_vf128_f32_resultwrite(wbuf, &v)) == 0);
+        assert((nwrote = mu_vf128_f32_write(wbuf, &v)) == 0);
     }
     mu_buf_destroy(wbuf);
 
     rbuf = mu_buffered_reader_new("test/output/t3.dat");
     for (size_t i = 0; i < 1024; i++) {
-        assert((nread = mu_vf128_f32_resultread(rbuf, &v)) == 0);
+        assert((nread = mu_vf128_f32_read(rbuf, &v)) == 0);
         assert(v == 1.0f/3.0f);
     }
-    assert((nread = mu_vf128_f32_resultread(rbuf, &v)) < 0);
+    assert((nread = mu_vf128_f32_read(rbuf, &v)) < 0);
     mu_buf_destroy(rbuf);
 }
 

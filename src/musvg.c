@@ -2740,8 +2740,8 @@ void musvg_emit_xml(musvg_parser* p, mu_buf *buf)
 
 void musvg_emit_binary_vf(musvg_parser* p, mu_buf *buf)
 {
-    p->f32_write = mu_vf128_f32_resultwrite_byval;
-    p->f32_write_vec = mu_vf128_f32_resultwrite_vec;
+    p->f32_write = mu_vf128_f32_write_byval;
+    p->f32_write_vec = mu_vf128_f32_write_vec;
     musvg_visit(p, buf, musvg_emit_binary_begin, musvg_emit_binary_end);
 }
 
@@ -2876,8 +2876,8 @@ int musvg_parse_binary(musvg_parser *p, mu_buf *buf)
 
 int musvg_parse_binary_vf(musvg_parser* p, mu_buf *buf)
 {
-    p->f32_read = mu_vf128_f32_resultread;
-    p->f32_read_vec = mu_vf128_f32_resultread_vec;
+    p->f32_read = mu_vf128_f32_read;
+    p->f32_read_vec = mu_vf128_f32_read_vec;
     return musvg_parse_binary(p, buf);
 }
 
