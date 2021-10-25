@@ -347,13 +347,13 @@ struct musvg_hash
 
 struct musvg_parser
 {
-    vec points;       /* polygon points */
-    vec path_ops;     /* path ops */
-    vec path_points;  /* path op points */
-    vec brushes;      /* brushes*/
-    vec nodes;        /* node graph */
-    vec hashes;       /* node hashes */
-    vec slots;        /* attribute storage slot linked list */
+    vec points;                /* polygon points */
+    vec path_ops;              /* path ops */
+    vec path_points;           /* path op points */
+    vec brushes;               /* brushes*/
+    vec nodes;                 /* node graph */
+    vec hashes;                /* node hashes */
+    vec slots;                 /* attribute storage slot linked list */
     storage_buffer storage;    /* aligned attribute value storage */
     storage_buffer strings;    /* variable length string storage */
 
