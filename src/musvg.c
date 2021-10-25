@@ -43,6 +43,7 @@
 #include "ztdbits.h"
 #include "mubuf.h"
 #include "muvec.h"
+#include "mumule.h"
 #include "musvg.h"
 
 #ifndef M_PI
@@ -50,23 +51,23 @@
 #endif
 
 #define MUSVG_BUFFER_MEMSET 0
-#define USE_MUVEC 0
+#define USE_MUVEC 1
 #define USE_BLAKE3 1
 #define USE_SHA256 0
 
 #if USE_BLAKE3
-#define MUSVG_HASH_LEN BLAKE3_OUT_LEN
-#define MUSVG_HASH_CTX blake3_hasher
-#define MUSVG_HASH_INIT(ctx) blake3_hasher_init(ctx);
-#define MUSVG_HASH_UPDATE(ctx,buf,len) blake3_hasher_update(ctx,buf,len);
-#define MUSVG_HASH_FINAL(ctx,sum) blake3_hasher_finalize(ctx,sum,BLAKE3_OUT_LEN);
+#define mu_hash_len BLAKE3_OUT_LEN
+#define mu_hash_ctx blake3_hasher
+#define mu_hash_init(ctx) blake3_hasher_init(ctx);
+#define mu_hash_update(ctx,buf,len) blake3_hasher_update(ctx,buf,len);
+#define mu_hash_final(ctx,sum) blake3_hasher_finalize(ctx,sum,BLAKE3_OUT_LEN);
 #endif
 #if USE_SHA256
-#define MUSVG_HASH_LEN sha256_hash_size
-#define MUSVG_HASH_CTX sha256_ctx
-#define MUSVG_HASH_INIT(ctx) sha256_init(ctx);
-#define MUSVG_HASH_UPDATE(ctx,buf,len) sha256_update(ctx,buf,len);
-#define MUSVG_HASH_FINAL(ctx,sum) sha256_final(ctx,sum);
+#define mu_hash_len sha256_hash_size
+#define mu_hash_ctx sha256_ctx
+#define mu_hash_init(ctx) sha256_init(ctx);
+#define mu_hash_update(ctx,buf,len) sha256_update(ctx,buf,len);
+#define mu_hash_final(ctx,sum) sha256_final(ctx,sum);
 #endif
 
 // Array buffer
@@ -341,7 +342,7 @@ struct musvg_node
 
 struct musvg_hash
 {
-    uint8_t sum[MUSVG_HASH_LEN];
+    uint8_t sum[mu_hash_len];
 };
 
 struct musvg_parser
@@ -355,6 +356,10 @@ struct musvg_parser
     vec slots;        /* attribute storage slot linked list */
     storage_buffer storage;    /* aligned attribute value storage */
     storage_buffer strings;    /* variable length string storage */
+
+    mu_mule mule;
+    mu_hash_ctx hash_ctx;
+    mu_buf *hash_buf;
 
     musvg_index node_stack[musvg_max_depth];
     uint node_depth;
@@ -2924,6 +2929,8 @@ int musvg_parse_fd(musvg_parser* p, musvg_format_t format, int fd)
 
 // SVG parser ctor/dtor
 
+void musvg_hash_work_fn(void *arg, size_t thr_idx, size_t item_idx);
+
 musvg_parser* musvg_parser_create()
 {
     musvg_parser* p = (musvg_parser*)malloc(sizeof(musvg_parser));
@@ -2948,6 +2955,9 @@ musvg_parser* musvg_parser_create()
     assert(storage_size(p) == 1);
     assert(strings_size(p) == 1);
 
+    mule_init(&p->mule, 1, musvg_hash_work_fn, p);
+    mule_start(&p->mule);
+
     return p;
 }
 
@@ -2961,6 +2971,9 @@ void musvg_parser_destroy(musvg_parser *p)
     slots_destroy(p);
     storage_destroy(p);
     strings_destroy(p);
+
+    mule_destroy(&p->mule);
+
     free(p);
 }
 
@@ -3200,8 +3213,6 @@ int musvg_attr_value_get(musvg_parser *p, musvg_index node_idx, musvg_attr attr,
 
 /* hashing */
 
-typedef struct { MUSVG_HASH_CTX ctx; mu_buf *buf; } musvg_hash_state;
-
 static const char* hex_string(char *buf, size_t buflen, const uint8_t *data, size_t sz)
 {
     size_t len = 0;
@@ -3214,34 +3225,38 @@ static const char* hex_string(char *buf, size_t buflen, const uint8_t *data, siz
 
 void musvg_hash_sum_begin(musvg_parser *p, void *userdata, musvg_index node_idx, uint depth, uint close)
 {
-    musvg_hash_state *state = (musvg_hash_state*)userdata;
     musvg_hash *hash = hashes_get(p, node_idx);
-    MUSVG_HASH_INIT(&state->ctx);
-    mu_buf_reset(state->buf);
-    mu_buf_write_i8(state->buf, (char)node_type(p, node_idx));
+    mu_hash_init(&p->hash_ctx);
+    mu_buf_reset(p->hash_buf);
+    mu_buf_write_i8(p->hash_buf, (char)node_type(p, node_idx));
     musvg_index slot_idx = node_attr(p, node_idx);
     while (slot_idx) {
         musvg_attr attr = slot_type(p, slot_idx);
         musvg_type_t type = musvg_attr_types[attr];
         musvg_attr_buf_fn fn = musvg_binary_emitters[musvg_attr_types[attr]];
-        mu_buf_write_i8(state->buf, attr);
-        fn(p, state->buf, node_idx, attr);
+        mu_buf_write_i8(p->hash_buf, attr);
+        fn(p, p->hash_buf, node_idx, attr);
         slot_idx = slot_left(p, slot_idx);
     }
-    mu_buf_write_i8(state->buf, musvg_attr_none);
-    MUSVG_HASH_UPDATE(&state->ctx, state->buf->data, state->buf->write_marker);
-    MUSVG_HASH_FINAL(&state->ctx, (unsigned char*)hash->sum);
+    mu_buf_write_i8(p->hash_buf, musvg_attr_none);
+    mu_hash_update(&p->hash_ctx, p->hash_buf->data, p->hash_buf->write_marker);
+    mu_hash_final(&p->hash_ctx, (unsigned char*)hash->sum);
+}
+
+void musvg_hash_work_fn(void *arg, size_t thr_idx, size_t item_idx)
+{
+    musvg_parser *p = (musvg_parser*)arg;
+    musvg_hash_sum_begin(p, NULL, item_idx, 0, 0);
 }
 
 void musvg_hash_sum(musvg_parser* p)
 {
-    musvg_hash_state state;
-    state.buf = mu_resizable_buf_new();
+    p->hash_buf = mu_resizable_buf_new();
     hashes_resize(p, nodes_count(p));
     p->f32_write = mu_ieee754_f32_write_byval;
     p->f32_write_vec = mu_ieee754_f32_write_vec;
-    musvg_visit(p, &state, musvg_hash_sum_begin, NULL);
-    mu_buf_destroy(state.buf);
+    musvg_visit(p, NULL, musvg_hash_sum_begin, NULL);
+    mu_buf_destroy(p->hash_buf);
 }
 
 void musvg_hash_dump_begin(musvg_parser *p, void *userdata, musvg_index node_idx, uint depth, uint close)
@@ -3249,7 +3264,7 @@ void musvg_hash_dump_begin(musvg_parser *p, void *userdata, musvg_index node_idx
     char hexbuf[257];
     musvg_hash *hash = hashes_get(p, node_idx);
     printf("node %7" _PRIDX " %56s\n", node_idx,
-        hex_string(hexbuf, sizeof(hexbuf), hash->sum, MUSVG_HASH_LEN));
+        hex_string(hexbuf, sizeof(hexbuf), hash->sum, mu_hash_len));
 }
 
 void musvg_hash_dump(musvg_parser* p)
