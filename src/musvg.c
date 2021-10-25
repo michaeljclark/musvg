@@ -40,7 +40,7 @@
 #include "blake3.h"
 #include "sha256.h"
 #include "sha512.h"
-#include "stdbits.h"
+#include "ztdbits.h"
 #include "mubuf.h"
 #include "muvec.h"
 #include "musvg.h"

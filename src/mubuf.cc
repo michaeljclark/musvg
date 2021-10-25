@@ -9,8 +9,8 @@
 #include <limits>
 
 #include "mubuf.h"
-#include "stdbits.h"
-#include "stdendian.h"
+#include "ztdbits.h"
+#include "ztdendian.h"
 
 #define DEBUG_ENCODING 0
 

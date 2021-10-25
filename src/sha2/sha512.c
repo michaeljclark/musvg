@@ -6,7 +6,7 @@
 
 #include <string.h>
 
-#include "stdendian.h"
+#include "ztdendian.h"
 #include "sha512.h"
 
 static const uint64_t sha512_256_init_state[8] = {

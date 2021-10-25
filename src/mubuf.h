@@ -12,8 +12,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "stdbits.h"
-#include "stdendian.h"
+#include "ztdbits.h"
+#include "ztdendian.h"
 
 #include "mulog.h"
 

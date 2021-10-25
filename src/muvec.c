@@ -11,7 +11,7 @@
 # define _Atomic(X) std::atomic<X>
 #endif
 
-#include "stdbits.h"
+#include "ztdbits.h"
 
 /*
  * muvec implementation
