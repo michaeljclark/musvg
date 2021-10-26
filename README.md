@@ -1,29 +1,309 @@
 # musvg
 
-_musvg_ is an experiment to create a binary rendergraph protocol from the
-SVG imaging model.
+_musvg_ is a binary rendergraph protocol for the SVG imaging model.
 
-_musvg_ is based on _nanosvg_.
+_musvg_ implements a typed property graph with succinct storage for typed
+elements and attributes, an SVG compatible vector graphics model and a
+bidirectional projection from SVG XML to a succinct binary encoding.
 
-## differences
+_musvg_ is based on _nanosvg_. _nanosvg_ has a simple single-pass SVG XML
+parse and linearization step using a SAX-like event stream. _nanosvg_ couples
+the parse and linearization steps meaning an alternate projection of SVG
+into binary instead of XML would require copying the linearization code.
+_musvg_ decouples parse and emit to allow supporting multiple encodings.
 
-_nanosvg_ has a simple single-pass SVG XML parse and linearization step
-using a SAX-like event stream. the _nanosvg_ approach couples the parse and
-linearization steps meaning an alternate projection of SVG into binary
-instead of XML would require copy and paste of the linearization code.
+# musvg progress
 
-a refactor is in progress to split the code into a distinct parse to graph
-step, adding linearization as a separate lowering step from an intermediate
-graph. attributes are given value types with pure functions to convert to or
-from external text or binary representation to an internal representation.
+- [X] succinct typed property graph.
+- [X] parser and emitter for SVG XML .
+- [X] parser and emitter for a succinct binary encoding.
+- [ ] parser and emitter for alternative text representation.
+- [ ] succinct binary encoding of property graph deltas.
+- [ ] OpenVG front-end API for programmatic construction.
+- [ ] linearization passes to convert shapes to paths.
+- [ ] front-ends for other formats such as [IconVG](https://github.com/google/iconvg/).
+- [ ] back-ends for cairo, skia, core-graphics, blend2d, nanosvg, ...
 
-an SVG emitter is being added as well as parsers and emitters for a succinct
-binary representation. a linearization pass can then be shared with front-ends
-for other formats such as [IconVG](https://github.com/google/iconvg/).
-presently there is only a parser split out from nanosvg with the addition
-of a graph representation that preserves the structure of the SVG document.
+## musvg binary encoding
 
-## binary encoding example
+_musvg_ implemented a typed property graph with succinct binary encoding.
+
+elements are encoded with an element type symbol followed by an
+attribute list, any child elements if present, then an end-element symbol.
+attributes are encoded with an attribute type symbol followed by an
+attribute type specific data structure. attribute lists are a sequence of
+attributes followed by an end-attribute-list symbol.
+
+```
+element-tree     ::= element-spec* end-element-symbol
+element-spec     ::= element-type-symbol attribute-list element-tree*
+attribute-list   ::= attribute-spec* end-attribute-list-symbol
+attribute-spec   ::= attribute-type-symbol attribute-struct-data
+```
+
+### element enum
+```
+enum element_type : i8 {
+  element_none,
+  element_svg,
+  element_g,
+  element_defs,
+  element_path,
+  element_rect,
+  element_circle,
+  element_ellipse,
+  element_line,
+  element_polyline,
+  element_polygon,
+  element_linear_gradient,
+  element_radial_gradient,
+  element_stop
+};
+```
+
+### attribute enum
+```
+enum attr_type : i8 {
+  attr_none,
+  attr_display,
+  attr_fill,
+  attr_fill_opacity,
+  attr_fill_rule,
+  attr_font_size,
+  attr_id,
+  attr_stroke,
+  attr_stroke_width,
+  attr_stroke_dasharray,
+  attr_stroke_dashoffset,
+  attr_stroke_opacity,
+  attr_stroke_linecap,
+  attr_stroke_linejoin,
+  attr_stroke_miterlimit,
+  attr_style,
+  attr_transform,
+  attr_d,
+  attr_points,
+  attr_width,
+  attr_height,
+  attr_x,
+  attr_y,
+  attr_r,
+  attr_rx,
+  attr_ry,
+  attr_cx,
+  attr_cy,
+  attr_x1,
+  attr_y1,
+  attr_x2,
+  attr_y2,
+  attr_fx,
+  attr_fy,
+  attr_offset,
+  attr_stop_color,
+  attr_stop_opacity,
+  attr_gradient_units,
+  attr_gradient_transform,
+  attr_spread_method,
+  attr_view_box,
+  attr_preserve_aspect_ratio,
+  attr_xmlns,
+  attr_xmlns_xlink,
+  attr_xlink_href
+};
+```
+
+### attribute types
+
+#### linecap
+```
+enum linecap : i8 {
+  linecap_butt,
+  linecap_round,
+  linecap_square
+};
+```
+
+#### linejoin
+```
+enum linejoin : i8 {
+  linejoin_miter,
+  linejoin_round,
+  linejoin_bevel
+};
+```
+
+#### fillrule
+```
+enum fillrule : i8 {
+  fillrule_nonzero,
+  fillrule_evenodd
+};
+```
+
+#### display
+```
+enum display : i8 {
+  display_inline,
+  display_none
+};
+```
+
+#### spread_method
+```
+enum spread_method : i8 {
+  spread_method_pad,
+  spread_method_reflect,
+  spread_method_repeat
+};
+```
+
+#### gradient_unit
+```
+enum gradient_unit : i8 {
+  gradient_unit_user,
+  gradient_unit_obb
+};
+```
+
+#### id
+```
+struct id {
+  leb128 length;
+  char data[length];
+};
+```
+
+#### length
+```
+enum unit_type : i8 {
+  unit_user,
+  unit_px,
+  unit_pt,
+  unit_pc,
+  unit_mm,
+  unit_cm,
+  unit_in,
+  unit_percent,
+  unit_em,
+  unit_ex
+};
+
+struct length {
+  float32 length;
+  unit_type lunits;
+};
+```
+
+#### color
+```
+enum color_type : i8 {
+  color_type_none,
+  color_type_rgba,
+  color_type_url
+};
+
+struct color {
+  color_type type;
+  union {
+    i32 color;
+    id url;
+  };
+};
+```
+
+#### transform
+```
+enum transform_type : i8 {
+  transform_matrix,
+  transform_translate,
+  transform_scale,
+  transform_rotate,
+  transform_skew_x,
+  transform_skew_y
+};
+
+struct transform {
+  transform_type type;
+  union {
+    float matrix[6];
+    struct {
+      i8 nargs;
+      float args[nargs];
+    };
+  };
+};
+```
+
+#### viewbox
+```
+struct viewbox {
+  float x;
+  float y;
+  float width;
+  float height;
+};
+```
+
+#### aspectratio
+```
+enum align_type : i8 {
+  align_mid,
+  align_min,
+  align_max,
+  align_none
+};
+
+struct aspectratio {
+  float alignX;
+  float alignY;
+  align_type type;
+};
+```
+
+#### path
+```
+enum path_opcode : i8 {
+  path_none,
+  path_closepath,
+  path_moveto_abs,
+  path_moveto_rel,
+  path_lineto_abs,
+  path_lineto_rel,
+  path_curveto_cubic_abs,
+  path_curveto_cubic_rel,
+  path_quadratic_curve_to_abs,
+  path_quadratic_curve_to_rel,
+  path_eliptical_arc_abs,
+  path_eliptical_arc_rel,
+  path_line_to_horizontal_abs,
+  path_line_to_horizontal_rel,
+  path_line_to_vertical_abs,
+  path_line_to_vertical_rel,
+  path_curveto_cubic_smooth_abs,
+  path_curveto_cubic_smooth_rel,
+  path_curveto_quadratic_smooth_abs,
+  path_curveto_quadratic_smooth_rel
+};
+
+struct path {
+  leb128 ops_count;
+  struct {
+    path_opcode opcode;
+    leb128 point_count;
+    float points[point_count];
+  } path_ops[ops_count];
+};
+```
+
+#### points
+```
+struct points {
+  leb128 points_count;
+  float points[point_count];
+};
+```
+
+### encoding example
 
 succinct coding of SVG circle takes 21 bytes instead of 41 bytes as XML.
 if we were able to encode the radius in a parent element then it would take 15 bytes.
