@@ -225,10 +225,10 @@ enum transform_type : i8 {
 struct transform {
   transform_type type;
   union {
-    float matrix[6];
+    float32 matrix[6];
     struct {
       i8 nargs;
-      float args[nargs];
+      float32 args[nargs];
     };
   };
 };
@@ -237,10 +237,10 @@ struct transform {
 #### viewbox
 ```
 struct viewbox {
-  float x;
-  float y;
-  float width;
-  float height;
+  float32 x;
+  float32 y;
+  float32 width;
+  float32 height;
 };
 ```
 
@@ -254,8 +254,8 @@ enum align_type : i8 {
 };
 
 struct aspectratio {
-  float alignX;
-  float alignY;
+  float32 alignX;
+  float32 alignY;
   align_type type;
 };
 ```
@@ -290,7 +290,7 @@ struct path {
   struct {
     path_opcode opcode;
     leb128 point_count;
-    float points[point_count];
+    float32 points[point_count];
   } path_ops[ops_count];
 };
 ```
@@ -299,7 +299,7 @@ struct path {
 ```
 struct points {
   leb128 points_count;
-  float points[point_count];
+  float32 points[point_count];
 };
 ```
 
