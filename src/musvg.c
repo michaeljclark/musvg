@@ -34,8 +34,13 @@
 #include <assert.h>
 #include <math.h>
 #include <ctype.h>
-#include <alloca.h>
 #include <threads.h>
+
+#ifndef _WIN32
+#include <alloca.h>
+#else
+#define alloca _alloca
+#endif
 
 #include "blake3.h"
 #include "sha256.h"
