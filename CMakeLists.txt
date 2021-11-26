@@ -55,7 +55,9 @@ endif()
 
 include(CheckLibraryExists)
 check_library_exists(m sqrtf "" HAVE_LIB_M)
-list (APPEND EXTRA_LIBS $<$<EQUAL:${HAVE_LIB_M},1>:m>)
+if (HAVE_LIB_M)
+list (APPEND EXTRA_LIBS m)
+endif ()
 
 # check for the C thread support library
 find_package(Threads REQUIRED)
