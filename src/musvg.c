@@ -648,7 +648,7 @@ static const musvg_type_meta musvg_type_storage[] = {
     [musvg_type_points]      = { sizeof(musvg_points),      alignof(musvg_points)      },
 };
 
-static inline uint musvg_path_opcode_t_arg_count(uint opcode)
+static inline uint musvg_path_opcode_arg_count(uint opcode)
 {
     static const int arg_counts[] = {
         0, 0, 2, 2, 2, 2, 6, 6, 4, 4, 7, 7, 1, 1, 1, 1, 4, 4, 2, 2,
@@ -656,7 +656,7 @@ static inline uint musvg_path_opcode_t_arg_count(uint opcode)
     return arg_counts[opcode];
 }
 
-static inline char musvg_path_opcode_t_cmd_char(uint opcode)
+static inline char musvg_path_opcode_cmd_char(uint opcode)
 {
     static const int cmd_chars[] = {
         '\0', 'Z', 'M', 'm', 'L', 'l', 'C', 'c', 'Q', 'q',
@@ -1762,7 +1762,7 @@ static musvg_path_d musvg_parse_path_ops(musvg_parser *p, const char *s)
         if (nargs == 0 && !is_length) {
             opc = item[0];
             code = musvg_parse_opcode(opc);
-            argc = musvg_path_opcode_t_arg_count(code);
+            argc = musvg_path_opcode_arg_count(code);
             if (code != 0 && argc == 0) {
                 musvg_path_op op = { code };
                 musvg_points points = { 0, 0 };
@@ -2456,7 +2456,7 @@ int musvg_write_text_path(musvg_parser *p, mu_buf *buf, musvg_index node_idx, mu
         char str[128];
         const musvg_path_op *op = path_ops_get(p, ops.op_offset + j);
         const musvg_points *points = path_points_get(p, ops.op_offset + j);
-        int8_t code = musvg_path_opcode_t_cmd_char(op->code);
+        int8_t code = musvg_path_opcode_cmd_char(op->code);
         assert(mu_buf_write_i8(buf, code != last_code ? code : ' '));
         for (musvg_index k = 0; k < points->point_count; k++) {
             if (k > 0) assert(mu_buf_write_i8(buf, ','));
