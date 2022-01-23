@@ -1,7 +1,5 @@
 #!/bin/sh
 
-./build/test_mubuf
-
 musvgtool=./build/musvgtool
 in=test/input
 out=test/output
