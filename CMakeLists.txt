@@ -12,6 +12,7 @@ option(MUSVG_ENABLE_ASAN "Enable ASAN" OFF)
 option(MUSVG_ENABLE_MSAN "Enable MSAN" OFF)
 option(MUSVG_ENABLE_TSAN "Enable TSAN" OFF)
 option(MUSVG_ENABLE_UBSAN "Enable UBSAN" OFF)
+option(MUSVG_ENABLE_BMI2 "Enable BMI2 instructions" OFF)
 
 macro(add_compiler_flag)
    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARGN}")
@@ -24,13 +25,10 @@ endmacro(add_linker_flag)
 
 include(CheckCXXCompilerFlag)
 
-# We need haswell for TZCNT/LZCNT
-check_cxx_compiler_flag("-march=x86-64-v3" has_march_x86_64_v3 "int main() { return 0; }")
-check_cxx_compiler_flag("-march=haswell" has_march_haswell "int main() { return 0; }")
-if (has_march_x86_64_v3)
-	add_compiler_flag(-march=x86-64-v3)
-elseif (has_march_haswell)
-	add_compiler_flag(-march=haswell)
+# We need -mbmi2 for TZCNT/LZCNT
+check_cxx_compiler_flag("-mbmi2" has_mbmi2 "int main() { return 0; }")
+if ((MUSVG_ENABLE_BMI2) AND (has_mbmi2))
+  add_compiler_flag(-mbmi2)
 endif()
 
 if (MUSVG_ENABLE_ASAN)
