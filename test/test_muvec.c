@@ -15,22 +15,22 @@ typedef signed long long llong;
 
 void t1(size_t count)
 {
-	mu_vec mv;
+    mu_vec mv;
 
-	t1_init(mv);
-	for (size_t i = 0; i < count; i++) {
-		size_t idx = t1_alloc(mv,1);
-		llong *p = t1_get(mv,idx);
-		*p = i;
-	}
-	for (size_t i = 0; i < count; i++) {
-		llong *p = t1_get(mv, i);
-		assert(*p == i);
-	}
-	t1_destroy(mv);
+    t1_init(mv);
+    for (size_t i = 0; i < count; i++) {
+        size_t idx = t1_alloc(mv,1);
+        llong *p = t1_get(mv,idx);
+        *p = i;
+    }
+    for (size_t i = 0; i < count; i++) {
+        llong *p = t1_get(mv, i);
+        assert(*p == i);
+    }
+    t1_destroy(mv);
 }
 
 int main(int argc, char **argv)
 {
-	t1(1024*1024);
+    t1(1024*1024);
 }
