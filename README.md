@@ -382,28 +382,24 @@ totals                                           88990     126976
 
 ## topological hashing
 
-once the binary representation is in place, there is a plan to succinctly
-encode changes to a graph in a log. a concept called (_"topological content
-addressing"_) will be used to identify nodes using topological content hashes.
+(_"topological content addressing"_) is used to identify identical nodes in different places using topological hashes as opposed to content hashes.
 
-> Git's internal format uses pure content addresses for blobs and
-> topological content addresses for commits.
+> Git's internal format uses content hashes for blobs and topological
+> hashes for commits.
 
 the difference between topological content addressing and pure content
-addressing is that topological content addresses includes in hash sums
-the relations to connected nodes via absorbtion of relation hash sums.
+addressing is that topological content addresses includes relations to
+connected nodes via absorbtion of relation hash sums.
 
 topological hashing allows unique addressing for nodes that would otherwise
 have equivalent content hashes when only looking at their distinct properties.
 topological content addressing solves the problem of identifying nodes that
-are otherwise equal without requiring programatic assignment of unique IDs
-which as we know is troublesome.
+are otherwise equal without requiring programatic assignment of unique IDs.
 
 IDs are calculated not assigned meaning there is no redundant identity state
 beyond the object properties and relations, removing _random_ entropy used
 by alternative ID assignment methods to solve this identity and order problem.
-this adds to succinctness. if a nonce is used in the hash sum, it can be
-common to the collection.
+this adds to succinctness.
 
 > duplicate but unique entries can be addressed deterministically using
 > sum of properties with topological order encoded via inclusion of the
@@ -454,7 +450,7 @@ b1276e6f59ae6e07e1c8cf5b2e1b1e07f947ee6b6457bc5829396edc
 
 later, in a synchronization or compression protocol, a context model using
 a priori state can form a patch delta to a specific instance of some duplicate
-entry using the minimum colliding prefix of the node's topological hash.
+entry using the minimum colliding prefix of the node's hash.
 
 example succinct minimum collision-free hash prefixes for the three nodes:
 
